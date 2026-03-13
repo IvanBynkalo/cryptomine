@@ -460,6 +460,8 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
     <button class="tc-btn" onclick="setMoreTab('market',this)">🏪 Рынок</button>
     <button class="tc-btn" onclick="setMoreTab('rangers',this)">🤖 Рейнджеры</button>
     <button class="tc-btn" onclick="setMoreTab('debris',this)">💫 Обломки</button>
+    <button class="tc-btn" onclick="setMoreTab('online',this)">🌐 Онлайн</button>
+    <button class="tc-btn" onclick="setMoreTab('police',this)">👮 Полиция</button>
   </div>
   <div class="scr" id="more-scr"></div>
   <div class="nav">
@@ -681,9 +683,20 @@ function freshState(){
   };
 }
 
-let G=loadG()||freshState();
+// ═══════════════════════════════════════════════════════
+//  STATE ACCESSORS
+// ═══════════════════════════════════════════════════════
+// Regular functions hoist fully — safe to call before G is assigned.
+// G declared with var so it also hoists (value = undefined until assigned).
+var G; // hoisted — assigned below after loadG()
+function gUpg(id)   { return (G&&G.upgrades  ?G.upgrades[id]  :0)||0; }
+function gHelper(id){ return (G&&G.helpers   ?G.helpers[id]   :0)||0; }
+function gSkill(id) { return (G&&G.skills    ?G.skills[id]    :0)||0; }
+function hasTech(id){ return !!(G&&G.researched?G.researched[id]:false); }
 
-// offline
+G = loadG()||freshState();
+
+// offline earnings
 (()=>{
   if(!G.lastSave) return;
   const dt=Math.min((Date.now()-G.lastSave)/1000,7200);
@@ -696,14 +709,6 @@ let G=loadG()||freshState();
 })();
 
 initPrices();
-
-// ═══════════════════════════════════════════════════════
-//  CALCULATIONS
-// ═══════════════════════════════════════════════════════
-const gUpg=id=>G.upgrades[id]||0;
-const gHelper=id=>G.helpers[id]||0;
-const gSkill=id=>G.skills[id]||0;
-const hasTech=id=>!!G.researched[id];
 
 function getEquipStats(){
   const stats={atk:0,def:0,reflect:0,fuelMod:0,cargo:0,maxHull:0};
@@ -875,6 +880,7 @@ function advanceTime(){
     spawnDebris();
     tickBotRangers();
     refreshQuests();
+    checkAlienInvasion();
     G.era=ERAS[Math.floor(G.day/30)%ERAS.length];
   }
   gameTimeTick++;
@@ -963,6 +969,7 @@ function completeQuest(q){
   G.cr+=q.reward;G.totalCr+=q.reward;
   G.xp+=q.xp||20;G.rp+=q.rp||5;
   G.completedQ++;
+  addPoliceRep(G.gal,5);
   toast(`🎉 Задание выполнено! +${fmt(q.reward)} кр`,'good');
   hapticN('success');
   updateQuestBadge();
@@ -1150,7 +1157,7 @@ function combatAction(act){
   const e=G.combat;
   const def=calcDefense();
   const eq=getEquipStats();
-  let playerLog='',enemyLog='';
+  let playerLog='';
 
   if(act==='attack'){
     let dmg=calcAttack()+Math.floor(Math.random()*8)-3;
@@ -1185,6 +1192,16 @@ function combatAction(act){
     G.cr+=loot;G.totalCr+=loot;
     G.rp+=e.xp*calcRpMult();
     G.xp+=e.xp;G.killCount++;G.totalKillReward=(G.totalKillReward||0)+loot;
+    if(e.isAlien){
+      alienInvasion=null;
+      G.alienKills=(G.alienKills||0)+1;
+      if(e.race){if(!G.alienKillsByRace)G.alienKillsByRace={};G.alienKillsByRace[e.race]=(G.alienKillsByRace[e.race]||0)+1;}
+      addPoliceRep(G.gal,20);
+      toast(`👽 Вторжение отражено! +${fmt(loot)} кр, +20 репутации`,'good');
+    } else {
+      addPoliceRep(G.gal,2);
+      toast(`🏆 Победа! +${fmt(loot)} кр`,'good');
+    }
     // update kill quests
     G.quests.forEach(q=>{
       if(!q.done&&q.accepted&&q.type==='kill'&&e.tier>=q.need.tier){
@@ -1194,30 +1211,69 @@ function combatAction(act){
     });
     G.combatLog.push(`🏆 Победа! +${fmt(loot)} кр, +${e.xp} НО`);
     G.combat=null;
-    toast(`🏆 Победа! +${fmt(loot)} кр`,'good');
     hapticN('success');lvlCheck();
     renderMoreTab();updateHUD();return;
   }
 
   // Enemy attacks
   let eDmg=Math.max(1,e.dmg+Math.floor(Math.random()*8)-3-def);
-  const reflect=eq.reflect||0;
-  if(hasTech('mirror')&&Math.random()<reflect){
-    e.hp=Math.max(0,e.hp-Math.floor(eDmg*.5));
-    enemyLog=`🪞 Отражение! ${e.name} также получил урон`;
+
+  // ── PSI: bypasses 50% of defense ──
+  if(e.special==='psi'){
+    eDmg=Math.max(1,e.dmg+Math.floor(Math.random()*8)-3-Math.floor(def*0.5));
+  }
+  // ── BERSERK: double dmg below 30% HP ──
+  if(e.special==='berserk'&&e.hp<e.maxHp*0.3){
+    eDmg=Math.round(eDmg*2);
+    G.combatLog.push(`💢 БЕРСЕРК! ${e.name} в ярости!`);
+  }
+
+  // ── PSI mind control: skip turn every 3 ──
+  e._turnCount=(e._turnCount||0)+1;
+  if(e.special==='psi'&&e._turnCount%3===0){
+    G.hull=Math.max(0,G.hull-Math.round(eDmg*0.5));
+    G.combatLog.push(`🧿 Контроль разума! Вы атакуете себя: -${Math.round(eDmg*0.5)} ХП`);
+    haptic('heavy');
   } else {
-    // piloting dodge
-    if(Math.random()<gSkill('piloting')*0.03){
-      enemyLog=`💨 Уклонение! Урон пропущен`;
+    const reflect=eq.reflect||0;
+    if(hasTech('mirror')&&Math.random()<reflect){
+      e.hp=Math.max(0,e.hp-Math.floor(eDmg*.5));
+      G.combatLog.push(`🪞 Отражение! ${e.name} также получил урон`);
+    } else if(Math.random()<gSkill('piloting')*0.03){
+      G.combatLog.push(`💨 Уклонение! Урон пропущен`);
     } else {
       G.hull=Math.max(0,G.hull-eDmg);
-      enemyLog=`🔴 ${e.name} атакует: -${eDmg} ХП`;
+      const dmgLabel=e.isAlien?`🟣 ${e.name}:`:`🔴 ${e.name}:`;
+      G.combatLog.push(`${dmgLabel} -${eDmg} ХП`);
     }
   }
+
+  // ── ZORG SPLIT: clone at 50% HP ──
+  if(e.special==='split'&&!e._split&&e.hp<=e.maxHp*0.5){
+    e._split=true;
+    const clone=Math.round(e.hp*0.5);
+    e.hp+=clone; // spawn adds health (representing two enemies merged into one fight)
+    G.combatLog.push(`🟢 ДЕЛЕНИЕ! ${e.name} разделился — ХП восстановлено частично!`);
+  }
+
+  // ── TECHNOID SHIELD: regen 15hp per turn ──
+  if(e.special==='shield'&&e.hp>0){
+    const regen=15+(e._shieldStack||0);
+    e.hp=Math.min(e.maxHp,e.hp+regen);
+    if(e._shieldStack===undefined) e._shieldStack=0;
+    e._shieldStack+=2; // adapts stronger each turn
+    G.combatLog.push(`🔵 Щит восстанавливает ${regen} ХП (адаптация +${e._shieldStack})`);
+  }
+
+  // ── ZORG/PSI DRAIN: steal energy ──
+  if(e.special==='drain'&&G.energy>0){
+    const drained=Math.min(G.energy,8);
+    G.energy=Math.max(0,G.energy-drained);
+    G.combatLog.push(`⚡ ${e.name} высасывает ${drained} энергии!`);
+  }
+
   if(hasTech('regen')) G.hull=Math.min(G.maxHull,G.hull+5);
   if(hasTech('fortress')) G.hull=Math.min(G.maxHull,G.hull+3);
-
-  G.combatLog.push(enemyLog);
   if(G.combatLog.length>12) G.combatLog=G.combatLog.slice(-12);
 
   // Check death
@@ -1451,6 +1507,7 @@ function afterArrive(sys){
   spawnDebris();
   refreshQuests();
   checkQuestProgress();
+  policeCheck();
   if(Math.random()<sys.pc+(GALAXIES.findIndex(g=>g.id===sys.gal)*0.1)){
     const tier=Math.min(PIRATES.length-1,Math.floor(G.lvl/5)+GALAXIES.findIndex(g=>g.id===sys.gal));
     startCombat(tier);
@@ -1559,7 +1616,7 @@ function renderMine(){
   document.getElementById('hl-b').style.width=(G.hull/G.maxHull*100)+'%';
   // planet
   document.getElementById('planet-em').textContent=sys.emoji;
-  document.getElementById('tap-lbl').textContent=`[ ТАП = +${fmt(cp)} ]`;
+  document.getElementById('tap-lbl').textContent=`[ ТАП = +${fmt(cp)} · ⚡ +${(0.18+gSkill('engineering')*0.02).toFixed(2)}/сек ]`;
   const glows={home:'rgba(0,255,136,.35)',mining:'rgba(255,215,0,.35)',trade:'rgba(0,200,255,.35)',danger:'rgba(255,58,58,.35)',science:'rgba(168,85,247,.35)',paradise:'rgba(0,200,100,.35)'};
   document.getElementById('planet-glow').style.background=`radial-gradient(circle,${glows[sys.type]||'rgba(0,200,255,.35)'} 0%,transparent 70%)`;
   // helpers
@@ -1716,12 +1773,14 @@ function setMoreTab(t,btn){
 }
 function renderMoreTab(){
   const scr=document.getElementById('more-scr');
-  if(moreTab==='combat') scr.innerHTML=renderCombatHTML();
-  else if(moreTab==='tech') scr.innerHTML=renderTechHTML();
-  else if(moreTab==='skills') scr.innerHTML=renderSkillsHTML();
-  else if(moreTab==='market') scr.innerHTML=renderMarketHTML();
+  if(moreTab==='combat')  scr.innerHTML=renderCombatHTML();
+  else if(moreTab==='tech')    scr.innerHTML=renderTechHTML();
+  else if(moreTab==='skills')  scr.innerHTML=renderSkillsHTML();
+  else if(moreTab==='market')  scr.innerHTML=renderMarketHTML();
   else if(moreTab==='rangers') scr.innerHTML=renderRangersHTML();
-  else if(moreTab==='debris') scr.innerHTML=renderDebrisHTML();
+  else if(moreTab==='debris')  scr.innerHTML=renderDebrisHTML();
+  else if(moreTab==='online')  scr.innerHTML=renderOnlineRangers();
+  else if(moreTab==='police')  scr.innerHTML=renderPoliceHTML();
   document.getElementById('mo-cred').textContent=fmt(G.cr);
   document.getElementById('mo-rp').textContent=fmt(Math.floor(G.rp));
   document.getElementById('mo-hull').textContent=Math.floor(G.hull/G.maxHull*100)+'%';
@@ -1739,11 +1798,27 @@ function renderCombatHTML(){
     </div>`;
     h+=`<div class="sh">Статистика боёв</div>`;
     h+=`<div class="g2">
-      <div class="mstat"><div class="msv" style="color:var(--red)">${G.killCount}</div><div class="msl">Убито</div></div>
+      <div class="mstat"><div class="msv" style="color:var(--red)">${G.killCount}</div><div class="msl">Убито всего</div></div>
+      <div class="mstat"><div class="msv" style="color:var(--purple)">${G.alienKills||0}</div><div class="msl">Инопланетян</div></div>
       <div class="mstat"><div class="msv" style="color:var(--gold)">${fmt(G.totalKillReward||0)}</div><div class="msl">Заработано</div></div>
       <div class="mstat"><div class="msv" style="color:var(--cyan)">${calcAttack()}</div><div class="msl">Атака</div></div>
-      <div class="mstat"><div class="msv" style="color:var(--green)">${calcDefense()}</div><div class="msl">Защита</div></div>
     </div>`;
+    // Alien codex
+    h+=`<div class="sh">Бестиарий инопланетян</div>`;
+    const races=[{id:'zorg',label:'🟢 ЗORG',desc:'Биологический рой. Делится, высасывает энергию.',color:'#00ff88'},
+                 {id:'technoid',label:'🔵 ТЕХНOИДЫ',desc:'Боевые машины. Щит регенерирует, адаптируется.',color:'#00c8ff'},
+                 {id:'psi',label:'🟣 ПСИ-РАЗУМ',desc:'Телепаты. Контроль разума, игнор брони.',color:'#a855f7'}];
+    h+=`<div class="g3">`;
+    races.forEach(r=>{
+      const killed=(G.alienKillsByRace||{})[r.id]||0;
+      h+=`<div class="card" style="border-color:${r.color}33;text-align:center;padding:10px 8px">
+        <div style="font-size:11px;font-weight:700;color:${r.color};margin-bottom:4px">${r.label}</div>
+        <div style="font-size:9px;color:var(--muted2);margin-bottom:6px;line-height:1.4">${r.desc}</div>
+        <div style="font-family:var(--mono);font-size:16px;color:${r.color}">${killed}</div>
+        <div style="font-size:9px;color:var(--muted2)">убито</div>
+      </div>`;
+    });
+    h+=`</div>`;
     h+=`<div class="sh">Экипировка корабля</div>`;
     const eq=G.equip;
     ['hull','engine','weapon','shield'].forEach(cat=>{
@@ -1759,23 +1834,38 @@ function renderCombatHTML(){
     return h;
   }
   const e=G.combat;
+  const isAlien=!!e.isAlien;
+  const raceColors={zorg:'#00ff88',technoid:'#00c8ff',psi:'#a855f7'};
+  const raceLabels={zorg:'🟢 ЗORG',technoid:'🔵 ТЕХНOИД',psi:'🟣 ПСИ'};
+  const enemyColor=isAlien?(e.color||raceColors[e.race]||'var(--red)'):'var(--red)';
   const logHTML=G.combatLog.slice(-8).map(l=>{
-    const cls=l.startsWith('🔵')||l.startsWith('🚀')||l.startsWith('🔧')?'cl-p':l.startsWith('🔴')?'cl-e':l.startsWith('🏆')||l.startsWith('🔋')?'cl-g':'cl-s';
+    const cls=l.startsWith('🔵')||l.startsWith('🚀')||l.startsWith('🔧')?'cl-p'
+      :l.startsWith('🔴')||l.startsWith('🟣')||l.startsWith('🟢')||l.startsWith('🔵 ')||l.startsWith('💢')||l.startsWith('🧿')?'cl-e'
+      :l.startsWith('🏆')||l.startsWith('🔋')||l.startsWith('🪞')||l.startsWith('💨')?'cl-g':'cl-s';
     return `<div class="${cls}">${l}</div>`;
   }).join('');
-  h+=`<div class="combat-arena">
-    <div class="fighters">
+  h+=`<div class="combat-arena" style="${isAlien?`border-color:${enemyColor}44;box-shadow:0 0 20px ${enemyColor}11`:''}">`; 
+  if(isAlien){
+    const raceTag=raceLabels[e.race]||'👽 ИНОПЛАНЕТЯНИН';
+    h+=`<div style="text-align:center;font-size:10px;letter-spacing:2px;color:${enemyColor};margin-bottom:8px;text-transform:uppercase">${raceTag} — ВТОРЖЕНИЕ</div>`;
+    h+=`<div style="background:rgba(0,0,0,.3);border-radius:8px;padding:6px 10px;font-size:10px;color:${enemyColor};margin-bottom:10px;border:1px solid ${enemyColor}33">
+      ⚡ Особая способность: ${e.desc||'—'}
+    </div>`;
+  }
+  h+=`<div class="fighters">
       <div class="fighter">
         <div class="f-icon">🚀</div>
         <div class="f-name">Ваш корабль</div>
         <div class="hp-track"><div class="hp-f hp-player" style="width:${G.hull/G.maxHull*100}%"></div></div>
         <div class="f-hp">${Math.floor(G.hull)}/${G.maxHull} ХП</div>
+        <div class="hp-track" style="margin-top:3px"><div class="bar-f bf-en" style="width:${G.energy/G.maxEnergy*100}%;height:100%"></div></div>
+        <div class="f-hp">⚡ ${Math.floor(G.energy)}/${G.maxEnergy}</div>
       </div>
       <div class="vs">VS</div>
       <div class="fighter">
-        <div class="f-icon">${e.icon}</div>
-        <div class="f-name">${e.name}</div>
-        <div class="hp-track"><div class="hp-f hp-enemy" style="width:${e.hp/e.maxHp*100}%"></div></div>
+        <div class="f-icon" style="font-size:${isAlien?42:38}px${isAlien?';filter:drop-shadow(0 0 8px '+enemyColor+'66)':''}">${e.icon}</div>
+        <div class="f-name" style="color:${isAlien?enemyColor:'inherit'}">${e.name}</div>
+        <div class="hp-track"><div class="hp-f hp-enemy" style="width:${e.hp/e.maxHp*100}%;background:linear-gradient(90deg,${isAlien?enemyColor:'var(--red)'},${isAlien?enemyColor+'aa':'var(--amber)'})"></div></div>
         <div class="f-hp">${e.hp}/${e.maxHp} ХП</div>
       </div>
     </div>
@@ -1987,8 +2077,11 @@ function tick(){
   const dt=(now-lastTick)/1000;lastTick=now;
   const cps=calcCPS();
   if(cps>0){G.cr+=cps*dt;G.totalCr+=cps*dt;G.xp+=cps*dt*.04;G.rp+=calcRpMult()*dt*.03;}
-  G.energy=Math.min(G.maxEnergy,G.energy+dt*3.5);
-  G.fuel=Math.min(G.maxFuel,G.fuel+dt*.6);
+  // Energy: slow regen ~10/min base, scales with Engineering skill
+  G.maxEnergy=Math.floor(50+G.lvl*5);
+  const eRegen=0.18+(gSkill('engineering')*0.02);
+  G.energy=Math.min(G.maxEnergy,G.energy+dt*eRegen);
+  G.fuel=Math.min(G.maxFuel,G.fuel+dt*0.05);
   if(hasTech('regen'))   G.hull=Math.min(G.maxHull,G.hull+dt*5);
   if(hasTech('fortress'))G.hull=Math.min(G.maxHull,G.hull+dt*3);
   advanceTime();
@@ -2027,10 +2120,344 @@ function fmt(n){n=Math.floor(n||0);if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=
 (()=>{const sf=document.getElementById('sf');for(let i=0;i<120;i++){const s=document.createElement('div');s.className='st';const sz=Math.random()*1.6+.3;s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${2+Math.random()*5}s;--dl:-${Math.random()*5}s`;sf.appendChild(s);}})();
 
 // ═══════════════════════════════════════════════════════
+//  POLICE SYSTEM
+// ═══════════════════════════════════════════════════════
+const POLICE_FACTIONS={
+  alpha:{name:'Галактическая Стража',icon:'👮',color:'#00c8ff',fine:500,   power:30},
+  beta: {name:'Имперский Патруль',   icon:'⚔️',color:'#ffd700',fine:1200,  power:60},
+  gamma:{name:'Орден Гаммы',         icon:'🔱',color:'#a855f7',fine:3000,  power:100},
+  chaos:{name:'Тёмная Инквизиция',   icon:'💀',color:'#ff3a3a',fine:8000,  power:180},
+};
+// Reputation: -100 (enemy) to +100 (ally)
+function getPoliceRep(gal){return G.policeRep?.[gal]??0;}
+function addPoliceRep(gal,amt){
+  if(!G.policeRep) G.policeRep={};
+  G.policeRep[gal]=Math.max(-100,Math.min(100,(G.policeRep[gal]??0)+amt));
+}
+function policeCheck(){
+  // Triggered on arrival if carrying weapons or after combat
+  const gal=G.gal;
+  const pol=POLICE_FACTIONS[gal];
+  if(!pol) return;
+  const rep=getPoliceRep(gal);
+  if(rep<-20){
+    // Wanted! Police intercept
+    const weaponsCargo=G.cargo['weapons']||0;
+    const suspect=weaponsCargo>0||rep<-50;
+    if(suspect&&Math.random()<0.35){
+      const fine=Math.round(pol.fine*(1+Math.abs(rep)/100));
+      G.cr=Math.max(0,G.cr-fine);
+      if(weaponsCargo>0){G.cargo['weapons']=0;}
+      toast(`👮 ${pol.name} конфисковала груз! Штраф: ${fmt(fine)} кр`,'bad');
+      hapticN('error');
+    }
+  }
+}
+function renderPolicePanel(gal){
+  const pol=POLICE_FACTIONS[gal]||POLICE_FACTIONS.alpha;
+  const rep=getPoliceRep(gal);
+  const repColor=rep>30?'var(--green)':rep>0?'var(--cyan)':rep>-30?'var(--gold)':'var(--red)';
+  const repLabel=rep>50?'Герой':rep>20?'Союзник':rep>0?'Нейтральный':rep>-30?'Подозреваемый':rep>-60?'Разыскивается':'Враг государства';
+  return `<div class="card" style="border-color:${pol.color}22;margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;color:${pol.color};letter-spacing:1px;text-transform:uppercase">${pol.icon} ${pol.name}</div>
+        <div style="font-family:var(--mono);font-size:18px;color:${repColor};margin-top:3px">${repLabel}</div>
+        <div style="font-size:10px;color:var(--muted2);margin-top:2px">Репутация: ${rep} · Штраф: ${fmt(pol.fine)} кр</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--mono);font-size:24px;color:${repColor}">${rep}</div>
+        <button class="btn btn-sm" style="margin-top:6px;background:rgba(0,200,255,.1);border-color:var(--b2);color:var(--cyan);font-size:9px" onclick="bribePolice('${gal}')">💰 Взятка</button>
+      </div>
+    </div></div>`;
+}
+function bribePolice(gal){
+  const pol=POLICE_FACTIONS[gal];
+  const cost=Math.abs(getPoliceRep(gal))*50+500;
+  if(G.cr<cost){toast(`💸 Нужно ${fmt(cost)} кр для взятки`,'bad');return;}
+  G.cr-=cost;addPoliceRep(gal,25);
+  toast(`💰 Взятка уплачена. Репутация улучшена`,'good');
+  renderMoreTab();
+}
+
+// ═══════════════════════════════════════════════════════
+//  ALIENS (INVADERS)
+// ═══════════════════════════════════════════════════════
+// ── Alien races ──────────────────────────────────────────
+// race: 'zorg'|'technoid'|'psi'
+// special: 'split'=spawns clone at 50% HP | 'shield'=regen 15hp/turn | 'psi'=bypasses 50% def | 'drain'=steals energy | 'berserk'=doubles dmg below 30% HP
+const ALIEN_TYPES=[
+  // ── ЗORG (bio-swarm, green) ──
+  {id:'zorg_scout',   race:'zorg',   name:'Рой-разведчик',    icon:'👽',hp:180, maxHp:180, dmg:20,reward:700,  xp:55, threat:1,special:'drain', color:'#00ff88',
+   desc:'Высасывает энергию (−8 за ход)'},
+  {id:'zorg_warrior', race:'zorg',   name:'Зorg-воин',        icon:'🐛',hp:420, maxHp:420, dmg:35,reward:1800, xp:130,threat:2,special:'split', color:'#00ff88',
+   desc:'При 50% ХП — делится на двух'},
+  {id:'zorg_queen',   race:'zorg',   name:'Королева Зorg',    icon:'🦠',hp:1100,maxHp:1100,dmg:65,reward:5500, xp:350,threat:3,special:'split', color:'#00ff88',
+   desc:'Регенерирует споры, split×2'},
+  // ── ТЕХНOИДЫ (machine, cyan) ──
+  {id:'tech_drone',   race:'technoid',name:'Тех-дрон',        icon:'🤖',hp:250, maxHp:250, dmg:28,reward:900,  xp:70, threat:1,special:'shield',color:'#00c8ff',
+   desc:'Щит восстанавливает 15 ХП/ход'},
+  {id:'tech_hunter',  race:'technoid',name:'Охотник MK-II',   icon:'🦾',hp:600, maxHp:600, dmg:50,reward:2500, xp:180,threat:2,special:'shield',color:'#00c8ff',
+   desc:'Адаптивная броня — с каждым ходом +5 защиты'},
+  {id:'tech_overlord',race:'technoid',name:'Техно-Властелин',  icon:'🔮',hp:2000,maxHp:2000,dmg:90,reward:9000, xp:600,threat:4,special:'berserk',color:'#00c8ff',
+   desc:'Режим берсерка ниже 30% ХП — урон ×2'},
+  // ── ПСИ-РАЗУМ (psychic, purple) ──
+  {id:'psi_phantom',  race:'psi',    name:'Пси-Фантом',       icon:'👻',hp:150, maxHp:150, dmg:30,reward:1000, xp:80, threat:1,special:'psi',   color:'#a855f7',
+   desc:'Пси-атака игнорирует 50% брони'},
+  {id:'psi_mind',     race:'psi',    name:'Разум-Пожиратель',  icon:'🧿',hp:400, maxHp:400, dmg:55,reward:3000, xp:220,threat:3,special:'psi',   color:'#a855f7',
+   desc:'Телепатия — каждые 3 хода контроль разума (пропускаешь ход)'},
+  {id:'psi_hive',     race:'psi',    name:'Великий Улей',      icon:'🌀',hp:3500,maxHp:3500,dmg:120,reward:18000,xp:1200,threat:4,special:'psi', color:'#a855f7',
+   desc:'Коллективный разум — сложно предсказать атаки'},
+  // ── Материнский корабль (все расы) ──
+  {id:'mothership',   race:'zorg',   name:'Материнский корабль',icon:'🌐',hp:5000,maxHp:5000,dmg:150,reward:25000,xp:1500,threat:4,special:'split',color:'#ff2d78',
+   desc:'Финальный босс — несёт всех инопланетян'},
+];
+let alienInvasion=null; // {sysId, alienIdx, startDay, coopNeeded}
+function checkAlienInvasion(){
+  if(alienInvasion) return;
+  if(G.day%12===0&&G.day>5&&Math.random()<0.45){
+    const dangerSys=SYSTEMS.filter(s=>s.type==='danger'||s.gal==='chaos'||s.gal==='gamma');
+    const sys=dangerSys[Math.floor(Math.random()*dangerSys.length)];
+    // Pick race based on galaxy
+    const races=['zorg','technoid','psi'];
+    const galIdx=GALAXIES.findIndex(g=>g.id===sys.gal);
+    const race=races[(galIdx+Math.floor(Math.random()*2))%3];
+    const ofRace=ALIEN_TYPES.filter(a=>a.race===race&&a.id!=='mothership');
+    const tierIdx=Math.min(ofRace.length-1,Math.floor(G.day/15));
+    const alien=ofRace[tierIdx];
+    alienInvasion={sysId:sys.id,alienId:alien.id,startDay:G.day,coopNeeded:alien.threat>=3};
+    const raceLabel={zorg:'🟢 ЗORG',technoid:'🔵 ТЕХНOИДЫ',psi:'🟣 ПСИ-РАЗУМ'}[race];
+    toast(`⚠️ ВТОРЖЕНИЕ ${raceLabel} в систему ${sys.name}!`,'bad');
+    hapticN('error');
+  }
+}
+function fightAlien(){
+  if(!alienInvasion){toast('Нет вторжения','bad');return;}
+  const al=ALIEN_TYPES.find(a=>a.id===alienInvasion.alienId)||ALIEN_TYPES[0];
+  G.combat={...al,hp:al.maxHp,tier:6+al.threat,isAlien:true};
+  G.combatLog=[`⚠️ Боевой контакт: ${al.icon} ${al.name}`,`💬 "${al.desc}"`];
+  toast(`${al.icon} Бой с ${al.name}!`,'bad');
+  goTo('more',document.querySelector('.nb:last-child'));
+  setMoreTab('combat',document.querySelector('.tc-btn'));
+  renderMoreTab();
+}
+
+// ═══════════════════════════════════════════════════════
+//  ONLINE RANGERS (shared storage simulation)
+// ═══════════════════════════════════════════════════════
+let onlineRangers=[];
+const FAKE_RANGER_NAMES=['StarWolf','NovaCat','IronAxe','DarkMatter','CosmicRay','VoidHunter','NebulaPilot','GalaxyStar','QuantumSword','ShadowDrift','StarlightX','PhantomFleet','OmegaPilot','CrystalVoid','SolarWind'];
+
+function generateFakeRangers(){
+  onlineRangers=[];
+  const count=5+Math.floor(Math.random()*10);
+  for(let i=0;i<count;i++){
+    const name=FAKE_RANGER_NAMES[Math.floor(Math.random()*FAKE_RANGER_NAMES.length)];
+    const sys=SYSTEMS[Math.floor(Math.random()*SYSTEMS.length)];
+    const lvl=Math.floor(1+Math.random()*30);
+    const rank=getRankByLvl(lvl);
+    onlineRangers.push({name,sys:sys.id,lvl,rank,status:Math.random()<0.3?'⚔️ В бою':Math.random()<0.5?'🛸 В пути':'⛏️ Майнинг'});
+  }
+  if(G.playerName&&!onlineRangers.find(r=>r.name===G.playerName)){
+    const sys=SYSTEMS.find(s=>s.id===G.sys);
+    onlineRangers.unshift({name:G.playerName,sys:G.sys,lvl:G.lvl,rank:getRank().name,status:'🎮 Онлайн',isMe:true});
+  }
+}
+function getRankByLvl(lvl){
+  let r=RANKS[0];for(const rk of RANKS){if(lvl>=rk.minLvl) r=rk;}return r.name;
+}
+setInterval(generateFakeRangers,30000);
+
+function renderOnlineRangers(){
+  generateFakeRangers();
+  const curSys=SYSTEMS.find(s=>s.id===G.sys);
+  let h=`<div class="card glow-c" style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;color:var(--cyan);letter-spacing:1px">🌐 ОНЛАЙН РЕЙНДЖЕРЫ</div>
+        <div style="font-family:var(--mono);font-size:22px;color:var(--green);margin-top:2px">${onlineRangers.length}</div>
+      </div>
+      <div style="text-align:right;font-size:10px;color:var(--muted2)">В вашей системе:<br><span style="color:var(--cyan)">${onlineRangers.filter(r=>r.sys===G.sys).length} рейнджеров</span></div>
+    </div></div>`;
+
+  // Co-op raid if alien invasion
+  if(alienInvasion){
+    const sys=SYSTEMS.find(s=>s.id===alienInvasion.sysId);
+    const al=ALIEN_TYPES.find(a=>a.id===alienInvasion.alienId)||ALIEN_TYPES[0];
+    const raceColors={zorg:'#00ff88',technoid:'#00c8ff',psi:'#a855f7'};
+    const rc=raceColors[al.race]||'var(--red)';
+    h+=`<div class="card" style="border-color:${rc}44;margin-bottom:10px">
+      <div style="font-size:11px;color:${rc};letter-spacing:1px;margin-bottom:6px">⚠️ ВТОРЖЕНИЕ — КООП РЕЙд</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">${al.icon} ${al.name}</div>
+      <div style="font-size:11px;color:var(--muted2);margin-bottom:4px">Система: ${sys?.name} · ХП: ${al.maxHp} · Угроза: ${'🔴'.repeat(al.threat)}</div>
+      <div style="font-size:10px;color:${rc};margin-bottom:8px">⚡ ${al.desc}</div>
+      ${alienInvasion.coopNeeded?`<div style="font-size:10px;color:var(--gold);margin-bottom:8px">🤝 Требуется кооп (2+ рейнджера)</div>`:''}
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-r" style="flex:1" onclick="fightAlien()">⚔️ В бой!</button>
+        <button class="btn btn-gold" style="flex:1" onclick="coopRaid()">🤝 Кооп рейд</button>
+      </div></div>`;
+  }
+
+  // Planet capture
+  h+=`<div class="sh">Захват планеты</div>
+  <div class="card" style="margin-bottom:10px">
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:8px">Соберите 3+ рейнджеров для захвата системы. Захваченная система даёт 5% со всех торговых операций.</div>
+    <button class="btn btn-p btn-full" onclick="startPlanetCapture()">🏴 Начать захват ${curSys.name}</button>
+  </div>`;
+
+  h+=`<div class="sh">Рейнджеры онлайн (${onlineRangers.length})</div>`;
+  onlineRangers.forEach(r=>{
+    const sys=SYSTEMS.find(s=>s.id===r.sys);
+    h+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card);border-radius:10px;border:1px solid ${r.isMe?'var(--b3)':'var(--b1)'};margin-bottom:5px">
+      <span style="font-size:20px">${r.isMe?'🎮':'👤'}</span>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700;color:${r.isMe?'var(--cyan)':'var(--text)'}">${r.name}${r.isMe?' (Вы)':''}</div>
+        <div style="font-size:10px;color:var(--muted2)">${r.status} · ${sys?.name||'?'} · Ур.${r.lvl}</div>
+      </div>
+      <div style="font-size:10px;color:var(--purple);text-align:right">${r.rank}</div>
+    </div>`;
+  });
+  return h;
+}
+
+function coopRaid(){
+  if(!alienInvasion){toast('Нет вторжения','bad');return;}
+  const coopBuddies=onlineRangers.filter(r=>!r.isMe).slice(0,2);
+  const al=ALIEN_TYPES.find(a=>a.id===alienInvasion.alienId)||ALIEN_TYPES[0];
+  G.combat={...al,hp:Math.round(al.maxHp*.4),maxHp:al.maxHp,tier:6+al.threat,isAlien:true,
+    coop:true,coopBonus:coopBuddies.map(r=>r.name).join(', ')};
+  G.combatLog=[`🤝 Кооп с: ${coopBuddies.map(r=>r.name).join(', ')}`,`⚠️ ${al.name} ослаблен союзниками на 60%!`,`💬 "${al.desc}"`];
+  toast(`🤝 Кооп бой начат с ${coopBuddies.length} союзниками!`,'good');
+  setMoreTab('combat',null);
+  renderMoreTab();
+}
+
+function startPlanetCapture(){
+  const sys=SYSTEMS.find(s=>s.id===G.sys);
+  const cost=50000+G.lvl*1000;
+  if(G.cr<cost){toast(`💸 Нужно ${fmt(cost)} кр для захвата`,'bad');return;}
+  const allies=onlineRangers.filter(r=>!r.isMe&&r.sys===G.sys).length;
+  if(allies<2){toast('🤝 Нужно 2+ союзника в системе','bad');return;}
+  G.cr-=cost;
+  if(!G.capturedSystems) G.capturedSystems=[];
+  if(!G.capturedSystems.includes(G.sys)){
+    G.capturedSystems.push(G.sys);
+    toast(`🏴 Система ${sys.name} захвачена! +5% со всех сделок`,'good');
+    hapticN('success');
+    addPoliceRep(G.gal,-30); // Police dislikes this
+  }
+  renderMoreTab();
+}
+
+// ═══════════════════════════════════════════════════════
+//  NAME SCREEN
+// ═══════════════════════════════════════════════════════
+function showNameScreen(){
+  const overlay=document.createElement('div');
+  overlay.id='name-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(3,11,20,.97);display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML=`
+    <div style="width:100%;max-width:340px;text-align:center">
+      <div style="font-size:48px;margin-bottom:16px">🚀</div>
+      <div style="font-family:var(--mono);font-size:22px;color:var(--cyan);letter-spacing:2px;margin-bottom:6px">SPACE RANGERS</div>
+      <div style="font-size:13px;color:var(--muted2);margin-bottom:24px">Idle Wars</div>
+      <div style="font-size:12px;color:var(--muted2);margin-bottom:8px;text-align:left">Имя рейнджера (уникальное)</div>
+      <input id="name-input" type="text" maxlength="16" placeholder="Введите имя..."
+        style="width:100%;background:var(--card2);border:1px solid var(--b2);border-radius:10px;
+          padding:12px 14px;font-family:var(--mono);font-size:14px;color:var(--cyan);
+          outline:none;margin-bottom:6px"
+        oninput="validateName(this.value)">
+      <div id="name-status" style="font-size:11px;color:var(--muted2);margin-bottom:16px;min-height:16px"></div>
+      <button id="name-btn" class="btn btn-c btn-full" onclick="submitName()" disabled>НАЧАТЬ ИГРУ</button>
+      <div style="font-size:10px;color:var(--muted);margin-top:10px">Имя будет видно другим рейнджерам в галактике</div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+const USED_NAMES_KEY='sr_names_v1';
+function getUsedNames(){
+  try{return JSON.parse(localStorage.getItem(USED_NAMES_KEY)||'[]');}catch{return[];}
+}
+function addUsedName(name){
+  const names=getUsedNames();
+  if(!names.includes(name)){names.push(name);localStorage.setItem(USED_NAMES_KEY,JSON.stringify(names));}
+}
+
+let nameCheckTimer=null;
+function validateName(val){
+  const btn=document.getElementById('name-btn');
+  const status=document.getElementById('name-status');
+  if(nameCheckTimer) clearTimeout(nameCheckTimer);
+  if(!val||val.trim().length<3){
+    status.textContent='Минимум 3 символа';status.style.color='var(--muted2)';
+    btn.disabled=true;return;
+  }
+  if(!/^[a-zA-Zа-яА-ЯёЁ0-9_\-]+$/.test(val)){
+    status.textContent='Только буквы, цифры, _ и -';status.style.color='var(--red)';
+    btn.disabled=true;return;
+  }
+  status.textContent='Проверяем...';status.style.color='var(--muted2)';
+  nameCheckTimer=setTimeout(()=>{
+    const used=getUsedNames();
+    const fakeNames=FAKE_RANGER_NAMES.map(n=>n.toLowerCase());
+    if(used.includes(val.toLowerCase())||fakeNames.includes(val.toLowerCase())){
+      status.textContent='❌ Имя уже занято. Выберите другое.';status.style.color='var(--red)';
+      btn.disabled=true;
+    } else {
+      status.textContent='✅ Имя свободно!';status.style.color='var(--green)';
+      btn.disabled=false;
+    }
+  },600);
+}
+
+function submitName(){
+  const val=document.getElementById('name-input').value.trim();
+  if(!val||val.length<3) return;
+  G.playerName=val;
+  addUsedName(val.toLowerCase());
+  document.getElementById('name-overlay').remove();
+  saveG();
+  generateFakeRangers();
+  toast(`👋 Добро пожаловать, ${val}!`,'good');
+  hapticN('success');
+}
+
+function renderPoliceHTML(){
+  let h=`<div class="sh">Полиция галактик</div>`;
+  GALAXIES.forEach(g=>{ h+=renderPolicePanel(g.id); });
+  h+=`<div class="sh">Репутационные бонусы</div>
+  <div class="card"><div style="font-size:11px;color:var(--muted2);line-height:1.9">
+    <span style="color:var(--green)">+50</span>: Бесплатные ремонты на станциях<br>
+    <span style="color:var(--cyan)">+20</span>: Скидка 10% на товары<br>
+    <span style="color:var(--muted2)">0</span>: Нейтральный статус<br>
+    <span style="color:var(--gold)">-20</span>: Проверки при прилёте<br>
+    <span style="color:var(--red)">-50</span>: Конфискация груза и штраф
+  </div></div>
+  <div class="sh">Улучшить репутацию</div>
+  <div class="card"><div style="font-size:11px;color:var(--muted2);margin-bottom:8px">Выполняйте задания, уничтожайте пиратов или давайте взятки.</div>
+  <div class="g2">${GALAXIES.map(g=>`<button class="btn btn-sm btn-c" onclick="bribePolice('${g.id}')">Взятка ${POLICE_FACTIONS[g.id].icon}</button>`).join('')}</div></div>`;
+  return h;
+}
+
+// ═══════════════════════════════════════════════════════
+//  CAPTURED SYSTEMS: passive income
+// ═══════════════════════════════════════════════════════
+function capturedIncome(){
+  if(!G.capturedSystems||!G.capturedSystems.length) return;
+  G.capturedSystems.forEach(()=>{
+    const income=Math.floor(10*G.lvl);
+    G.cr+=income;G.totalCr+=income;
+  });
+}
+setInterval(capturedIncome,5000);
+
+// ═══════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════
 initPrices();
 refreshQuests();
+generateFakeRangers();
+if(!G.playerName) showNameScreen();
 renderMine();
 updateHUD();
 </script>
