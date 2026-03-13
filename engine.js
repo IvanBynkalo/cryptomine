@@ -15,11 +15,14 @@ function initPrices(){
     });
   });
 }
+initPrices(); // init immediately so tick() can fluctuate safely
 
 function fluctuatePrices(bigEvent=false){
   SYSTEMS.forEach(sys=>{
+    if(!G.prices[sys.id]) G.prices[sys.id]={};
+    if(!G.priceHistory[sys.id]) G.priceHistory[sys.id]={};
     (sys.goods||[]).forEach(gId=>{
-      const base=GOODS[gId].base, cur=G.prices[sys.id]?.[gId]||base;
+      const base=GOODS[gId].base, cur=G.prices[sys.id][gId]||base;
       let change=(Math.random()-.5)*(bigEvent?0.35:0.12);
       if(sys.type==='mining'&&(gId==='ore'||gId==='minerals')) change-=0.05;
       if(sys.type==='trade'&&(gId==='tech'||gId==='food')) change-=0.04;
@@ -35,8 +38,8 @@ function fluctuatePrices(bigEvent=false){
   if(numTraders>0){
     for(let i=0;i<numTraders*2;i++){
       const sys=SYSTEMS[Math.floor(Math.random()*SYSTEMS.length)];
-      const good=sys.goods[Math.floor(Math.random()*sys.goods.length)];
-      if(!good) continue;
+      const good=sys.goods?.[Math.floor(Math.random()*sys.goods.length)];
+      if(!good||!G.prices[sys.id]) continue;
       const base=GOODS[good].base, cur=G.prices[sys.id][good]||base;
       G.prices[sys.id][good]=Math.max(Math.round(base*.3),Math.min(Math.round(base*3),Math.round(cur*(1+(Math.random()-.5)*0.08))));
     }
