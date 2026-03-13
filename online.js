@@ -1,3 +1,10 @@
+// simple deterministic hash for stable fake names
+function _fakeSeed(str,mod){
+  let h=5381;
+  for(let i=0;i<String(str).length;i++) h=((h<<5)+h)+String(str).charCodeAt(i)|0;
+  return Math.abs(h)%(mod||1000);
+}
+
 // ═══════════════════════════════════════
 //  online.js — league + online rangers
 // ═══════════════════════════════════════
@@ -46,21 +53,26 @@ async function fetchOnline(){
     }
   }catch(e){}
 
-  // add fake rangers if too few
+  // add fake rangers if too few — stable, update only every 5min
   const realCount=players.length;
   if(realCount<6){
-    const needed=6+Math.floor(Math.random()*5)-realCount;
+    const needed=6+Math.floor(_fakeSeed(G.playerName||'x',1)*5|0)-realCount;
     const used=new Set(players.map(p=>p.name));
-    for(let i=0;i<needed;i++){
-      const n=FAKE_NAMES.filter(x=>!used.has(x))[Math.floor(Math.random()*FAKE_NAMES.length)]||FAKE_NAMES[i%FAKE_NAMES.length];
+    // use deterministic seeded fakes per session (change every 5 min)
+    const timeSeed=Math.floor(Date.now()/300000); // changes every 5 min
+    for(let i=0;i<Math.max(0,needed);i++){
+      const idx=(_fakeSeed(G.playerName+i+timeSeed,FAKE_NAMES.length))|0;
+      const n=FAKE_NAMES[idx%FAKE_NAMES.length];
+      if(used.has(n)) continue;
       used.add(n);
-      const lvl=Math.max(1,Math.floor(G.lvl*(0.5+Math.random())));
+      const seed=_fakeSeed(n,100);
+      const lvl=Math.max(1,Math.min(50,Math.floor(seed*0.5+G.lvl*0.3+1)));
       players.push({
-        name:n, lvl, kills:Math.floor(Math.random()*200),
-        rank:getRankByLvl(lvl), score:Math.floor(Math.random()*500),
-        sys:SYSTEMS[Math.floor(Math.random()*SYSTEMS.length)].id,
-        gal:GALAXIES[Math.floor(Math.random()*GALAXIES.length)].id,
-        ts:Date.now()-Math.floor(Math.random()*ONLINE_TTL_MS),
+        name:n, lvl, kills:Math.floor(seed*2),
+        rank:getRankByLvl(lvl), score:Math.floor(seed*5+G.leagueScore*0.3),
+        sys:SYSTEMS[Math.floor(seed*0.19*SYSTEMS.length)%SYSTEMS.length].id,
+        gal:GALAXIES[Math.floor(seed*0.04)%GALAXIES.length].id,
+        ts:Date.now()-Math.floor(seed*30000),
         isFake:true
       });
     }
@@ -265,5 +277,5 @@ function startPlanetCapture(){
 }
 
 // start heartbeat loop
-setInterval(heartbeat, 60000);
+setInterval(heartbeat, 60000); // write own presence every 60s
 setTimeout(heartbeat, 2000);

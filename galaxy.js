@@ -202,17 +202,24 @@ function onGxClick(e){
 function showSysPanel(sys){
   const isCur=sys.id===G.sys;
   const fc=calcFuelCost(sys);
+  const days=isCur?0:travelDays(sys);
   const needWarp=sys.gal!==G.gal;
   const typeLabel={home:'🏠 База',mining:'⛏️ Добыча',trade:'🛒 Торговля',danger:'☠️ Опасно',science:'🔬 Наука',paradise:'🌿 Рай'}[sys.type]||'';
+  const canRefuelHere=['trade','paradise','home'].includes(sys.type);
+  const planets=sys.planets||[sys.emoji];
   document.getElementById('sp-nm').textContent=`${sys.emoji} ${sys.name}`;
   document.getElementById('sp-ds').innerHTML=
     `<span style="color:var(--muted2)">${typeLabel}</span> &nbsp;·&nbsp; ☠️ ${Math.round(sys.pc*100)}% &nbsp;·&nbsp; ⚡ ${isCur?0:fc} топл.`+
-    (alienInvasion?.sysId===sys.id?`<br><span style="color:#ff2d78">⚠️ ВТОРЖЕНИЕ ПРИШЕЛЬЦЕВ!</span>`:'');
+    (!isCur?` &nbsp;·&nbsp; 📅 ~${days} дн.`:'')+
+    (canRefuelHere?' &nbsp;<span style="color:var(--cyan)">⛽</span>':'')+
+    `<br><span style="font-size:13px;letter-spacing:2px" title="Планеты системы">${planets.join(' ')}</span>`+
+    (alienInvasion?.sysId===sys.id?`<br><span style="color:#ff2d78">⚠️ ВТОРЖЕНИЕ ПРИШЕЛЬЦЕВ!</span>`:'')+
+    (sys.goods?`<br><span style="font-size:9px;color:var(--muted2)">Товары: ${sys.goods.map(g=>GOODS[g]?.name||g).join(', ')}</span>`:'');
   const btn=document.getElementById('fly-btn');
   if(isCur){btn.textContent='✅ Вы здесь';btn.disabled=true;}
   else if(needWarp&&!hasTech('warp')){btn.textContent='🔒 Нужен варп-ядро';btn.disabled=true;}
   else if(G.fuel<fc){btn.textContent=`⚡ Мало топлива (нужно ${fc})`;btn.disabled=true;}
-  else{btn.textContent=`🚀 Лететь  -${fc} ⚡`;btn.disabled=false;}
+  else{btn.textContent=`🚀 Лететь  -${fc}⚡ (~${days} дн.)`;btn.disabled=false;}
   document.getElementById('tv-bar').classList.remove('show');
   document.getElementById('sys-panel').classList.add('open');
 }

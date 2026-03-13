@@ -24,22 +24,7 @@ function findEnemy(){
   renderMoreTab();
 }
 
-function checkAlienInvasion(){
-  if(alienInvasion) return;
-  if(G.day%12===0&&G.day>5&&Math.random()<0.45){
-    const dangerSys=SYSTEMS.filter(s=>s.type==='danger'||s.gal==='chaos'||s.gal==='gamma');
-    const sys=dangerSys[Math.floor(Math.random()*dangerSys.length)];
-    const races=['zorg','technoid','psi'];
-    const galIdx=GALAXIES.findIndex(g=>g.id===sys.gal);
-    const race=races[(galIdx+Math.floor(Math.random()*2))%3];
-    const ofRace=ALIEN_TYPES.filter(a=>a.race===race&&a.id!=='mothership');
-    const alien=ofRace[Math.min(ofRace.length-1,Math.floor(G.day/15))];
-    alienInvasion={sysId:sys.id,alienId:alien.id,startDay:G.day,coopNeeded:alien.threat>=3};
-    const raceLabel={zorg:'🟢 ЗORG',technoid:'🔵 ТЕХНOИДЫ',psi:'🟣 ПСИ-РАЗУМ'}[race];
-    toast(`⚠️ ВТОРЖЕНИЕ ${raceLabel} в ${sys.name}!`,'bad');
-    hapticN('error');
-  }
-}
+// checkAlienInvasion -> engine.js
 
 function fightAlien(){
   if(!alienInvasion){toast('Нет вторжения','bad');return;}

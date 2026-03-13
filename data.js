@@ -22,28 +22,28 @@ const GALAXIES=[
 
 const SYSTEMS=[
   // ALPHA
-  {id:'sol',   gal:'alpha',name:'Солнечная',x:.5, y:.45,type:'home',   emoji:'🌍',fuelCost:0, pc:.05,goods:['ore','food','tech']},
-  {id:'kep',   gal:'alpha',name:'Кеплер',   x:.2, y:.3, type:'mining', emoji:'🪐',fuelCost:18,pc:.18,goods:['ore','minerals','fuel']},
-  {id:'vega',  gal:'alpha',name:'Вега',     x:.78,y:.22,type:'trade',  emoji:'🌟',fuelCost:25,pc:.1, goods:['tech','food','medicine']},
-  {id:'nova',  gal:'alpha',name:'Нова Кор', x:.3, y:.72,type:'science',emoji:'💜',fuelCost:32,pc:.12,goods:['tech','medicine','food']},
-  {id:'icarus',gal:'alpha',name:'Икар',     x:.65,y:.15,type:'mining', emoji:'🟠',fuelCost:38,pc:.22,goods:['fuel','minerals','ore']},
+  {id:'sol',   gal:'alpha',name:'Солнечная',x:.5, y:.45,type:'home',   emoji:'🌍',fuelCost:0, pc:.05,goods:['ore','food','tech'],     planets:['🌍','🌕','🔴','⚫']},
+  {id:'kep',   gal:'alpha',name:'Кеплер',   x:.2, y:.3, type:'mining', emoji:'🪐',fuelCost:18,pc:.18,goods:['ore','minerals','fuel'],  planets:['🪐','🟠','⚫']},
+  {id:'vega',  gal:'alpha',name:'Вега',     x:.78,y:.22,type:'trade',  emoji:'🌟',fuelCost:25,pc:.1, goods:['tech','food','medicine'], planets:['🔵','🟢','🌕']},
+  {id:'nova',  gal:'alpha',name:'Нова Кор', x:.3, y:.72,type:'science',emoji:'💜',fuelCost:32,pc:.12,goods:['tech','medicine','food'], planets:['💜','🔵','⚪']},
+  {id:'icarus',gal:'alpha',name:'Икар',     x:.65,y:.15,type:'mining', emoji:'🟠',fuelCost:38,pc:.22,goods:['fuel','minerals','ore'],  planets:['🟠','⚫','🟤']},
   // BETA
-  {id:'dragon',gal:'beta', name:'Дракон',   x:.85,y:.6, type:'danger', emoji:'🔴',fuelCost:28,pc:.5, goods:['minerals','weapons','ore']},
-  {id:'eden',  gal:'beta', name:'Эден',     x:.45,y:.8, type:'paradise',emoji:'🟢',fuelCost:42,pc:.08,goods:['food','medicine','fuel']},
-  {id:'ares',  gal:'beta', name:'Арес',     x:.2, y:.5, type:'danger', emoji:'🔥',fuelCost:35,pc:.45,goods:['weapons','minerals','ore']},
-  {id:'nexus', gal:'beta', name:'Нексус',   x:.6, y:.3, type:'trade',  emoji:'💠',fuelCost:40,pc:.15,goods:['tech','food','medicine']},
-  {id:'pulse', gal:'beta', name:'Пульсар',  x:.15,y:.2, type:'science',emoji:'⚡',fuelCost:50,pc:.2, goods:['fuel','tech','minerals']},
+  {id:'dragon',gal:'beta', name:'Дракон',   x:.85,y:.6, type:'danger', emoji:'🔴',fuelCost:28,pc:.5, goods:['minerals','weapons','ore'],  planets:['🔴','⚫','💀']},
+  {id:'eden',  gal:'beta', name:'Эден',     x:.45,y:.8, type:'paradise',emoji:'🟢',fuelCost:42,pc:.08,goods:['food','medicine','fuel'],   planets:['🟢','💚','🌕','🔵']},
+  {id:'ares',  gal:'beta', name:'Арес',     x:.2, y:.5, type:'danger', emoji:'🔥',fuelCost:35,pc:.45,goods:['weapons','minerals','ore'],  planets:['🔥','🟤','⚫']},
+  {id:'nexus', gal:'beta', name:'Нексус',   x:.6, y:.3, type:'trade',  emoji:'💠',fuelCost:40,pc:.15,goods:['tech','food','medicine'],   planets:['💠','🔵','🟣']},
+  {id:'pulse', gal:'beta', name:'Пульсар',  x:.15,y:.2, type:'science',emoji:'⚡',fuelCost:50,pc:.2, goods:['fuel','tech','minerals'],   planets:['⚡','🔵','⚪']},
   // GAMMA
-  {id:'abad',  gal:'gamma',name:'Абаддон',  x:.15,y:.6, type:'danger', emoji:'⚫',fuelCost:48,pc:.7, goods:['weapons','minerals','tech']},
-  {id:'zion',  gal:'gamma',name:'Зион',     x:.5, y:.35,type:'trade',  emoji:'🔵',fuelCost:55,pc:.12,goods:['tech','food','medicine']},
-  {id:'forge', gal:'gamma',name:'Кузница',  x:.82,y:.7, type:'mining', emoji:'⚙️',fuelCost:60,pc:.3, goods:['ore','minerals','weapons']},
-  {id:'arcane',gal:'gamma',name:'Аркейн',   x:.35,y:.8, type:'science',emoji:'🌀',fuelCost:65,pc:.18,goods:['tech','medicine','fuel']},
-  {id:'abyss', gal:'gamma',name:'Бездна',   x:.7, y:.15,type:'danger', emoji:'🖤',fuelCost:70,pc:.6, goods:['weapons','minerals','ore']},
+  {id:'abad',  gal:'gamma',name:'Абаддон',  x:.15,y:.6, type:'danger', emoji:'⚫',fuelCost:48,pc:.7, goods:['weapons','minerals','tech'],  planets:['⚫','💀','🖤']},
+  {id:'zion',  gal:'gamma',name:'Зион',     x:.5, y:.35,type:'trade',  emoji:'🔵',fuelCost:55,pc:.12,goods:['tech','food','medicine'],    planets:['🔵','🟢','💠','🌕']},
+  {id:'forge', gal:'gamma',name:'Кузница',  x:.82,y:.7, type:'mining', emoji:'⚙️',fuelCost:60,pc:.3, goods:['ore','minerals','weapons'],  planets:['⚙️','🟤','⚫']},
+  {id:'arcane',gal:'gamma',name:'Аркейн',   x:.35,y:.8, type:'science',emoji:'🌀',fuelCost:65,pc:.18,goods:['tech','medicine','fuel'],    planets:['🌀','💜','🔵']},
+  {id:'abyss', gal:'gamma',name:'Бездна',   x:.7, y:.15,type:'danger', emoji:'🖤',fuelCost:70,pc:.6, goods:['weapons','minerals','ore'],  planets:['🖤','⚫','💀']},
   // CHAOS
-  {id:'entropy',gal:'chaos',name:'Энтропия',x:.5, y:.5, type:'danger', emoji:'💀',fuelCost:60,pc:.85,goods:['weapons','minerals','tech']},
-  {id:'rift',   gal:'chaos',name:'Разлом',  x:.25,y:.3, type:'danger', emoji:'🌑',fuelCost:65,pc:.75,goods:['weapons','ore','fuel']},
-  {id:'vortex', gal:'chaos',name:'Вортекс', x:.75,y:.65,type:'danger', emoji:'🌪️',fuelCost:70,pc:.9, goods:['weapons','minerals','tech']},
-  {id:'sanctum',gal:'chaos',name:'Санктум', x:.4, y:.75,type:'trade',  emoji:'🏯',fuelCost:80,pc:.4, goods:['tech','medicine','food']},
+  {id:'entropy',gal:'chaos',name:'Энтропия',x:.5, y:.5, type:'danger', emoji:'💀',fuelCost:60,pc:.85,goods:['weapons','minerals','tech'], planets:['💀','⚫','🌑']},
+  {id:'rift',   gal:'chaos',name:'Разлом',  x:.25,y:.3, type:'danger', emoji:'🌑',fuelCost:65,pc:.75,goods:['weapons','ore','fuel'],      planets:['🌑','⚫','🖤']},
+  {id:'vortex', gal:'chaos',name:'Вортекс', x:.75,y:.65,type:'danger', emoji:'🌪️',fuelCost:70,pc:.9, goods:['weapons','minerals','tech'], planets:['🌪️','💀','⚫']},
+  {id:'sanctum',gal:'chaos',name:'Санктум', x:.4, y:.75,type:'trade',  emoji:'🏯',fuelCost:80,pc:.4, goods:['tech','medicine','food'],    planets:['🏯','💜','🔵']},
 ];
 
 const GOODS={
@@ -66,10 +66,10 @@ const SHIP_UPGRADES=[
 ];
 
 const HELPERS=[
-  {id:'miner',  icon:'🤖',name:'Авто-майнер',  cps:2,  cost:500,   costM:1.6},
-  {id:'drone',  icon:'🚁',name:'Дрон-сборщик', cps:10, cost:3000,  costM:1.65},
-  {id:'station',icon:'🏭',name:'Орбит-станция',cps:50, cost:20000, costM:1.7},
-  {id:'ai',     icon:'🧬',name:'ИИ-ядро',      cps:250,cost:150000,costM:1.75},
+  {id:'miner',  icon:'🤖',name:'Авто-майнер',  cps:1,   cost:5000,   costM:1.8},
+  {id:'drone',  icon:'🚁',name:'Дрон-сборщик', cps:5,   cost:30000,  costM:1.85},
+  {id:'station',icon:'🏭',name:'Орбит-станция',cps:25,  cost:200000, costM:1.9},
+  {id:'ai',     icon:'🧬',name:'ИИ-ядро',      cps:120, cost:1500000,costM:2.0},
 ];
 
 const TECH={

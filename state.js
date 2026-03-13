@@ -7,28 +7,30 @@ function freshState(){
     cr:0,totalCr:0,xp:0,lvl:1,energy:100,maxEnergy:100,
     hull:100,maxHull:100,fuel:100,maxFuel:100,
     missiles:3,maxMissiles:3,rp:0,skillPts:0,
-    day:1,hour:6,minute:0,era:'Заря',
+    // calendar
+    day:1,hour:6,minute:0,month:1,year:2450,era:'Заря',
     sys:'sol',gal:'alpha',
     upgrades:{},researched:{},skills:{},
     equip:{hull:'hull_scout',engine:'eng_basic',weapon:'wpn_laser',shield:'shld_basic'},
     owned_equip:[],
     helpers:{},rangers:{},
-    cargo:{},cargoMax:20,
+    cargo:{},cargoCost:{}, // weighted avg buy price per good
+    cargoMax:20,
     quests:[],completedQ:0,
     combat:null,combatLog:[],
     killCount:0,totalKillReward:0,alienKills:0,alienKillsByRace:{},
     prices:{},priceHistory:{},
     debrisActive:[],botActions:[],
     policeRep:{},capturedSystems:[],
+    landPlots:{}, // sysId -> {good, level, lastHarvestDay}
     playerName:null,
-    // league
     leagueSeason:1,leagueScore:0,leagueBestSeason:0,
     seasonStart:Date.now(),
     lastSave:Date.now(),
   };
 }
 
-// ── hoisted var so offline IIFE can call calcCPS safely ──
+// hoisted var
 var G;
 function gUpg(id)    { return (G&&G.upgrades  ? G.upgrades[id]   : 0)||0; }
 function gHelper(id) { return (G&&G.helpers   ? G.helpers[id]    : 0)||0; }
@@ -36,7 +38,12 @@ function gSkill(id)  { return (G&&G.skills    ? G.skills[id]     : 0)||0; }
 function hasTech(id) { return !!(G&&G.researched ? G.researched[id] : false); }
 
 function saveG(){
-  try{ localStorage.setItem('srw_v4',JSON.stringify(G)); }catch(e){}
+  try{
+    // keep previous save as backup slot _bak
+    const prev=localStorage.getItem('srw_v4');
+    if(prev) localStorage.setItem('srw_v4_bak',prev);
+    localStorage.setItem('srw_v4',JSON.stringify(G));
+  }catch(e){}
 }
 function loadG(){
   try{
@@ -47,6 +54,11 @@ function loadG(){
 
 // ── Init ──
 G = loadG()||freshState();
+// migrate missing fields
+if(!G.month)      G.month=1;
+if(!G.year)       G.year=2450;
+if(!G.cargoCost)  G.cargoCost={};
+if(!G.landPlots)  G.landPlots={};
 
 // offline earnings
 (()=>{
@@ -83,6 +95,10 @@ function calcCPS(){
   if(hasTech('stellar'))  cps+=100;
   if(hasTech('galactic')) cps+=500;
   cps+=(G.rangers['miner_b']||0)*20;
+  // land plot passive income
+  if(G.landPlots) Object.values(G.landPlots).forEach(p=>{
+    if(p&&p.level) cps+=p.level*5;
+  });
   return cps;
 }
 function calcAttack(){
@@ -136,4 +152,4 @@ function getRankByLvl(lvl){
 }
 function xpForLvl(l){ return Math.floor(100*Math.pow(1.85,l-1)); }
 
-// fmt → globals.js
+// fmt -> globals.js

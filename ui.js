@@ -120,7 +120,12 @@ function renderTrade(){
         <div class="ginfo"><div class="gname">${def.name} ×${amt}</div>
           ${sell?`<div class="gprice">Продать: ${fmt(sell)}/шт</div>`:`<div style="font-size:10px;color:var(--muted)">Нет спроса</div>`}
         </div><div class="gbtns">
-          ${sell?`<button class="btn btn-sm btn-r" onclick="sellGood('${gId}',1)">×1</button>
+          ${sell?`
+            <div style="font-size:9px;color:var(--muted2);margin-bottom:3px">
+              Куплено: ${G.cargoCost?.[gId]?fmt(G.cargoCost[gId])+'кр/ед':'—'}
+              ${G.cargoCost?.[gId]&&price?(()=>{const p=price-(G.cargoCost[gId]||0);return p>0?'<span style="color:var(--green)">▲'+fmt(p)+'</span>':'<span style="color:var(--red)">▼'+fmt(Math.abs(p))+'</span>';})():''}
+            </div>
+            <button class="btn btn-sm btn-r" onclick="sellGood('${gId}',1)">×1</button>
             <button class="btn btn-sm btn-r" onclick="sellGood('${gId}',${amt})">Всё</button>`:''}
         </div></div>`;
     });
@@ -236,6 +241,7 @@ function renderMoreTab(){
   else if(moreTab==='debris')  { scr.innerHTML=renderDebrisHTML(); }
   else if(moreTab==='online')  { renderOnlineRangers(); return; } // async
   else if(moreTab==='police')  { scr.innerHTML=renderPoliceHTML(); }
+  else if(moreTab==='land')    { scr.innerHTML=renderLandHTML(); }
   document.getElementById('mo-cred').textContent=fmt(G.cr);
   document.getElementById('mo-rp').textContent=fmt(Math.floor(G.rp));
   document.getElementById('mo-hull').textContent=Math.floor(G.hull/G.maxHull*100)+'%';
@@ -504,6 +510,26 @@ function renderPoliceHTML(){
       </div>
     </div>`;
   });
+  // Refuel button
+  const sys=SYSTEMS.find(s=>s.id===G.sys);
+  const canRefuel=sys&&['trade','paradise','home'].includes(sys.type);
+  const fuelNeeded=Math.max(0,G.maxFuel-G.fuel);
+  const fuelPrice=canRefuel?Math.round((G.prices[G.sys]?.fuel||80)*0.6):0;
+  const refuelCost=canRefuel?Math.round(fuelPrice*fuelNeeded/10):0;
+  h+=`<div class="sh">⛽ Дозаправка</div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:13px;font-weight:700">Топливный склад</div>
+        <div style="font-size:10px;color:var(--muted2)">Топливо: ${Math.floor(G.fuel)}/${G.maxFuel}</div>
+        ${canRefuel?`<div style="font-size:10px;color:var(--cyan)">Цена: ${fmt(refuelCost)} кр (${fmt(fuelNeeded)} ед.)</div>`:
+          `<div style="font-size:10px;color:var(--red)">Заправка только в торговых, райских и домашних системах</div>`}
+      </div>
+      <button class="btn btn-sm btn-c" onclick="refuel()" ${canRefuel&&fuelNeeded>0?'':'disabled'}>
+        ⛽ Заправить
+      </button>
+    </div>
+  </div>`;
   h+=`<div style="font-size:10px;color:var(--muted2);padding:8px">
     +2 репутации за пирата · +5 за задание · +20 за пришельца<br>
     -30 за захват системы · Взятка: +25 репутации
@@ -511,7 +537,68 @@ function renderPoliceHTML(){
   return h;
 }
 
+// ── Land Plots ──
+function renderLandHTML(){
+  let h=`<div class="sh">🌱 Земельные участки</div>`;
+  const sys=SYSTEMS.find(s=>s.id===G.sys);
+  const plot=G.landPlots[G.sys];
+  const level=plot?plot.level:0;
+  const costs=[50000,200000,500000,1500000,5000000];
+  const goods=sys.goods||[];
+  h+=`<div class="card">
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px">📍 ${sys.name}</div>
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:8px">
+      Участки производят товары каждый игровой день и дают пассивный доход (+${(level||0)*5}/сек CPS)
+    </div>`;
+  if(level>0){
+    h+=`<div style="display:flex;gap:4px;margin-bottom:8px">
+      ${Array(5).fill(0).map((_,i)=>`<span style="width:16px;height:16px;border-radius:50%;display:inline-block;
+        background:${i<level?'var(--green)':'rgba(255,255,255,.08)'};border:1px solid ${i<level?'var(--green)':'var(--b2)'}"></span>`).join('')}
+      <span style="font-size:11px;color:var(--green);margin-left:6px">Уровень ${level}/5</span>
+    </div>
+    <div style="font-size:10px;color:var(--cyan);margin-bottom:8px">
+      Производит: ${plot.good?GOODS[plot.good]?.name:'?'} — ${level*2}/день · +${level*5}/сек
+    </div>`;
+  }
+  if(level<5){
+    const cost=costs[level];
+    h+=`<div style="margin-bottom:8px">
+      ${goods.map(gId=>`<button class="btn btn-sm ${G.cr>=cost?'btn-g':''}" style="margin-right:4px;margin-bottom:4px"
+        onclick="buyLandPlot('${G.sys}','${gId}')" ${G.cr>=cost?'':'disabled'}>
+        ${GOODS[gId]?.icon} ${GOODS[gId]?.name}
+      </button>`).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--gold)">💰 Цена ур.${level+1}: ${fmt(cost)} кр</div>`;
+  } else {
+    h+=`<div style="font-size:11px;color:var(--green)">✅ Максимальный уровень!</div>`;
+  }
+  h+=`</div>`;
+  // Show all plots
+  const allPlots=Object.entries(G.landPlots||{}).filter(([,p])=>p&&p.level>0);
+  if(allPlots.length){
+    h+=`<div class="sh">Все участки (${allPlots.length})</div>`;
+    allPlots.forEach(([sysId,p])=>{
+      const s=SYSTEMS.find(x=>x.id===sysId);
+      h+=`<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;font-weight:700">${s?.emoji} ${s?.name}</div>
+          <div style="font-size:10px;color:var(--muted2)">${GOODS[p.good]?.icon} ${GOODS[p.good]?.name} · Ур.${p.level} · +${p.level*2}/день</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:14px;color:var(--green)">+${p.level*5}/сек</div>
+      </div>`;
+    });
+  }
+  return h;
+}
+
 // ── Trade actions ──
+function _updateCargoCost(gId, price, qty){
+  // weighted average cost tracking
+  if(!G.cargoCost) G.cargoCost={};
+  const have=G.cargo[gId]||0;
+  const avgOld=G.cargoCost[gId]||price;
+  G.cargoCost[gId]=Math.round((avgOld*have+price*qty)/(have+qty));
+}
 function buyGood(gId){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   const price=G.prices[sys.id]?.[gId];
@@ -520,6 +607,7 @@ function buyGood(gId){
   if(G.cr<realP){toast('💸 Мало кредитов','bad');return;}
   G.cargoMax=calcCargoMax();
   if(calcCargoUsed()>=G.cargoMax){toast('📦 Трюм полон!','bad');return;}
+  _updateCargoCost(gId,realP,1);
   G.cr-=realP; G.cargo[gId]=(G.cargo[gId]||0)+1;
   haptic('light');renderTrade();updateHUD();
 }
@@ -528,7 +616,10 @@ function buyGoodMax(gId){
   const price=G.prices[sys.id]?.[gId];if(!price) return;
   const realP=Math.round(price*(1-gSkill('eloquence')*.02));
   let bought=0;G.cargoMax=calcCargoMax();
-  while(G.cr>=realP&&calcCargoUsed()<G.cargoMax){G.cr-=realP;G.cargo[gId]=(G.cargo[gId]||0)+1;bought++;}
+  while(G.cr>=realP&&calcCargoUsed()<G.cargoMax){
+    _updateCargoCost(gId,realP,1);
+    G.cr-=realP;G.cargo[gId]=(G.cargo[gId]||0)+1;bought++;
+  }
   if(bought) toast(`📦 ×${bought}`,'good');
   haptic('medium');renderTrade();updateHUD();
 }
@@ -536,16 +627,21 @@ function sellGood(gId,amt){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   const price=G.prices[sys.id]?.[gId];if(!price){toast('Нет спроса','bad');return;}
   const toSell=Math.min(amt,G.cargo[gId]||0);if(!toSell) return;
-  const earn=Math.round(price*.9*toSell*(1+gSkill('trade')*.03));
+  const earn=Math.round(price*toSell*(1+gSkill('trade')*.03));
+  const avgCost=(G.cargoCost?.[gId]||0)*toSell;
+  const profit=earn-avgCost;
   G.cr+=earn;G.totalCr+=earn;
   G.cargo[gId]=(G.cargo[gId]||0)-toSell;
+  if((G.cargo[gId]||0)<=0) { delete G.cargo[gId]; if(G.cargoCost) delete G.cargoCost[gId]; }
+  // deliver quest: selling goods at destination completes it
   G.quests.forEach(q=>{
     if(!q.done&&q.accepted&&q.type==='deliver'&&q.need.good===gId&&q.need.destSys===G.sys){
       q.progress=(q.progress||0)+toSell;
       if(q.progress>=q.need.amt) completeQuest(q);
     }
   });
-  toast(`💰 +${fmt(earn)} кр`,'good');haptic('medium');renderTrade();updateHUD();
+  const profitStr=avgCost>0?(profit>=0?` (+${fmt(profit)})`:(` (${fmt(profit)})`)): '';
+  toast(`💰 +${fmt(earn)} кр${profitStr}`,'good');haptic('medium');renderTrade();updateHUD();
 }
 
 // ── Tech/Skills/Market/Rangers ──

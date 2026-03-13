@@ -457,6 +457,14 @@ body::after{
     <!-- Ship Upgrades -->
     <div class="sh">Апгрейды корабля</div>
     <div id="ship-upg-grid" class="g2"></div>
+    <!-- Quick shortcuts -->
+    <div style="display:flex;gap:6px;padding:0 10px 8px;flex-wrap:wrap">
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('tech',null)">🔬 Тех</button>
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('skills',null)">🧠 Навыки</button>
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('market',null)">🏪 Рынок</button>
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('police',null)">👮⛽</button>
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('land',null)">🌱 Земля</button>
+    </div>
   </div>
   <div class="nav">
     <button class="nb on" onclick="goTo('mine',this)"><span class="ni">⛏️</span><span class="nl">Майнинг</span></button>
@@ -565,6 +573,7 @@ body::after{
     <button class="tc-btn" onclick="setMoreTab('debris',this)">💫 Обломки</button>
     <button class="tc-btn" onclick="setMoreTab('online',this)">🌐 Онлайн</button>
     <button class="tc-btn" onclick="setMoreTab('police',this)">👮 Полиция</button>
+    <button class="tc-btn" onclick="setMoreTab('land',this)">🌱 Земля</button>
   </div>
   <div class="scr" id="more-scr"></div>
   <div class="nav">
