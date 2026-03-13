@@ -23,6 +23,14 @@ function freshState(){
     debrisActive:[],botActions:[],
     policeRep:{},capturedSystems:[],
     landPlots:{}, // sysId -> {good, level, lastHarvestDay}
+    // random events
+    activeEvent:null, // {id, endsDay}
+    eventHistory:[],
+    // story chains
+    storyProgress:{}, // chainId -> {step, done}
+    // anomalies
+    anomaliesFound:0,
+    anomalyLog:[],
     playerName:null,
     leagueSeason:1,leagueScore:0,leagueBestSeason:0,
     seasonStart:Date.now(),
@@ -59,6 +67,9 @@ if(!G.month)      G.month=1;
 if(!G.year)       G.year=2450;
 if(!G.cargoCost)  G.cargoCost={};
 if(!G.landPlots)  G.landPlots={};
+if(!G.storyProgress) G.storyProgress={};
+if(!G.eventHistory)  G.eventHistory=[];
+if(!G.anomalyLog)    G.anomalyLog=[];
 if(G.alienInvasion){
   if(!Array.isArray(G.alienInvasion.alienIds)) G.alienInvasion.alienIds=G.alienInvasion.alienId?[G.alienInvasion.alienId]:[];
   if(!G.alienInvasion.bossId){

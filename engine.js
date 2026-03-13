@@ -399,3 +399,207 @@ setInterval(()=>{
 },1000);
 setInterval(()=>{ G.lastSave=Date.now();saveG(); },10000);
 setInterval(capturedIncome,5000);
+
+// ═══════════════════════════════════════
+//  RANDOM EVENTS
+// ═══════════════════════════════════════
+function tickRandomEvents(){
+  const absDay=G.day+(G.month-1)*30+(G.year-2450)*360;
+  // expire old event
+  if(G.activeEvent&&G.activeEvent.endsDay<=absDay){
+    toast(`📰 Событие завершено: ${G.activeEvent.name}`,'warn');
+    G.activeEvent=null;
+    if(_uiReady) renderMine();
+  }
+  // spawn new event (chance per day)
+  if(!G.activeEvent&&Math.random()<0.18){
+    const ev=RANDOM_EVENTS[Math.floor(Math.random()*RANDOM_EVENTS.length)];
+    G.activeEvent={...ev, startDay:absDay, endsDay:absDay+(ev.duration||1)};
+    G.eventHistory.unshift({id:ev.id,name:ev.name,day:absDay});
+    if(G.eventHistory.length>20) G.eventHistory.pop();
+    // instant effects
+    if(ev.effect==='teleport'){
+      const galSys=SYSTEMS.filter(s=>s.gal===G.gal&&s.id!==G.sys);
+      if(galSys.length){ G.sys=galSys[Math.floor(Math.random()*galSys.length)].id; }
+      G.activeEvent=null;
+    } else if(ev.effect==='spawn_debris'){
+      for(let i=0;i<3;i++) forceSpawnDebris();
+    } else if(ev.effect==='price_crash'){
+      fluctuatePrices(true);
+    }
+    toast(`${ev.icon} Событие: ${ev.name} — ${ev.desc}`,'warn');
+    hapticN('warning');
+  }
+}
+
+function forceSpawnDebris(){
+  const d=DEBRIS_TYPES[Math.floor(Math.random()*DEBRIS_TYPES.length)];
+  G.debrisActive.push({id:`db_${Date.now()}_${Math.random()}`,type:d.id,name:d.name,
+    icon:d.icon,reward:d.reward,rp:d.rp,expires:Date.now()+d.time*1000});
+}
+
+// Get current event effect multiplier
+function getEventMult(effect){
+  if(!G.activeEvent) return 1;
+  const e=G.activeEvent;
+  if(e.effect===effect) return e.id==='gold_rush'?3:e.id==='energy_x3'?3:e.id==='fuel_x2'?2:e.id==='police_x2'?2:2;
+  return 1;
+}
+function isEventActive(effect){
+  return !!(G.activeEvent&&G.activeEvent.effect===effect);
+}
+
+// ═══════════════════════════════════════
+//  ANOMALIES
+// ═══════════════════════════════════════
+let anomalySpawnTimer=0;
+function tickAnomalies(){
+  anomalySpawnTimer++;
+  if(anomalySpawnTimer<120) return; // every 30s
+  anomalySpawnTimer=0;
+  if((G.anomaliesActive||[]).length>=2) return;
+  const sys=SYSTEMS.find(s=>s.id===G.sys);
+  if(!sys) return;
+  // higher chance in dangerous/science systems
+  const baseChance=sys.type==='danger'?0.25:sys.type==='science'?0.2:0.1;
+  if(Math.random()>baseChance) return;
+  // pick anomaly by rarity
+  const roll=Math.random();
+  let acc=0;
+  for(const a of ANOMALIES){
+    acc+=a.rarity;
+    if(roll<acc){
+      if(!G.anomaliesActive) G.anomaliesActive=[];
+      const existing=G.anomaliesActive.find(x=>x.id===a.id);
+      if(existing) return;
+      G.anomaliesActive.push({...a, sysId:G.sys, foundAt:Date.now()});
+      toast(`${a.icon} Аномалия: ${a.name} — ${a.desc}`,'good');
+      break;
+    }
+  }
+}
+
+function exploreAnomaly(anomalyId){
+  if(!G.anomaliesActive) return;
+  const idx=G.anomaliesActive.findIndex(a=>a.id===anomalyId);
+  if(idx<0) return;
+  const a=G.anomaliesActive[idx];
+  if(a.sysId!==G.sys){toast('Аномалия в другой системе','bad');return;}
+  // danger check
+  if(Math.random()<a.danger){
+    const dmg=Math.round(G.maxHull*0.3);
+    G.hull=Math.max(1,G.hull-dmg);
+    toast(`${a.icon} Опасно! -${dmg} ХП корпуса`,'bad');
+    hapticN('error');
+  } else {
+    // apply rewards
+    const r=a.reward||{};
+    if(r.cr){G.cr+=r.cr;G.totalCr+=r.cr;}
+    if(r.rp) G.rp+=r.rp;
+    if(r.energy) G.energy=Math.min(G.maxEnergy,G.energy+r.energy);
+    if(r.minerals){G.cargo.minerals=(G.cargo.minerals||0)+r.minerals;}
+    if(r.tech){G.cargo.tech=(G.cargo.tech||0)+r.tech;}
+    if(r.teleport){
+      const galSys=SYSTEMS.filter(s=>s.gal!==G.gal);
+      if(galSys.length){ const dest=galSys[Math.floor(Math.random()*galSys.length)]; G.sys=dest.id;G.gal=dest.gal; }
+    }
+    G.anomaliesFound=(G.anomaliesFound||0)+1;
+    addLeagueScore(15);
+    const rewardStr=Object.entries(r).filter(([k])=>k!=='teleport').map(([k,v])=>`+${v} ${k}`).join(', ');
+    toast(`${a.icon} ${a.name} исследована! ${rewardStr}`,'good');
+    hapticN('success');
+    G.anomalyLog.unshift({id:a.id,name:a.name,icon:a.icon,reward:r,day:G.day});
+    if(G.anomalyLog.length>15) G.anomalyLog.pop();
+  }
+  G.anomaliesActive.splice(idx,1);
+  if(_uiReady) renderMine();
+  updateHUD();
+}
+
+// ═══════════════════════════════════════
+//  STORY CHAINS
+// ═══════════════════════════════════════
+function getStoryChain(chainId){ return STORY_CHAINS.find(c=>c.id===chainId); }
+function getChainProgress(chainId){ return G.storyProgress[chainId]||{step:0,done:false}; }
+
+function startStoryChain(chainId){
+  const chain=getStoryChain(chainId);
+  if(!chain) return;
+  if(G.storyProgress[chainId]?.step>0){toast('Цепочка уже начата','warn');return;}
+  G.storyProgress[chainId]={step:1,done:false};
+  toast(`📖 Начата цепочка: ${chain.title}`,'good');
+  hapticN('success');
+  if(_uiReady) renderMoreTab();
+}
+
+function claimStoryStep(chainId){
+  const chain=getStoryChain(chainId);
+  const prog=getChainProgress(chainId);
+  if(!chain||prog.done) return;
+  const stepIdx=prog.step-1;
+  const step=chain.steps[stepIdx];
+  if(!step) return;
+
+  // Check completion condition
+  let complete=false;
+  if(step.type==='arrive'){ complete=(G.sys===step.sys); }
+  else if(step.type==='deliver'){
+    complete=(G.sys===step.sys&&(G.cargo[step.good]||0)>=step.amt);
+    if(complete){ G.cargo[step.good]=Math.max(0,(G.cargo[step.good]||0)-step.amt); }
+  } else if(step.type==='kill'){
+    complete=(prog.killCount||0)>=step.count;
+  }
+
+  if(!complete){ toast(`Условие не выполнено: ${step.desc}`,'bad'); return; }
+
+  // Give reward
+  G.cr+=step.reward; G.totalCr+=step.reward; G.xp+=step.xp;
+  addLeagueScore(Math.floor(step.xp/5));
+  toast(`✅ ${step.title} — +${fmt(step.reward)} кр`,'good');
+  hapticN('success');
+
+  // Final step?
+  if(step.final){
+    prog.done=true;
+    G.storyProgress[chainId]=prog;
+    // apply final reward
+    if(step.finalReward){
+      const [type,val]=step.finalReward.split(':');
+      if(type==='equip'){
+        if(!G.owned_equip.includes(val)) G.owned_equip.push(val);
+        toast(`🎁 Получено снаряжение: ${EQUIPMENT.find(e=>e.id===val)?.name||val}`,'gold');
+      } else if(type==='credits'){
+        const cr=parseInt(val);G.cr+=cr;G.totalCr+=cr;
+        toast(`🎁 Финальная награда: +${fmt(cr)} кр`,'gold');
+      }
+    }
+    toast(`🏆 Цепочка завершена: ${chain.title}!`,'gold');
+  } else {
+    prog.step++;
+    prog.killCount=0;
+    G.storyProgress[chainId]=prog;
+    toast(`📖 Шаг ${prog.step}/${chain.steps.length}: ${chain.steps[prog.step-1]?.title}`,'good');
+  }
+  if(_uiReady) renderMoreTab();
+}
+
+// Track kills for story step
+function trackStoryKills(){
+  Object.entries(G.storyProgress||{}).forEach(([chainId,prog])=>{
+    if(prog.done) return;
+    const chain=getStoryChain(chainId);
+    const step=chain?.steps[prog.step-1];
+    if(step?.type==='kill'){ prog.killCount=(prog.killCount||0)+1; }
+  });
+}
+
+// ── Plug into advanceTime ──
+const _origAdvanceTime=advanceTime;
+// patch: call new systems each day
+const _patchedTick=tick;
+
+// Inject into daily tick
+setInterval(()=>{
+  tickAnomalies();
+  if(G.day%3===0) tickRandomEvents();
+},5000);

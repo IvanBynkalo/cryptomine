@@ -48,6 +48,22 @@ function renderMine(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   G.maxHull=calcMaxHull();G.cargoMax=calcCargoMax();
   const cp=calcClickPower(),cps=calcCPS(),need=xpForLvl(G.lvl);
+  // Event banner
+  const evBanner=document.getElementById('event-banner');
+  if(evBanner){
+    if(G.activeEvent){
+      evBanner.style.display='block';
+      evBanner.innerHTML=`<span style="font-size:15px">${G.activeEvent.icon}</span> <b>${G.activeEvent.name}</b> <span style="font-size:10px;opacity:.8">${G.activeEvent.desc}</span>`;
+    } else { evBanner.style.display='none'; }
+  }
+  // Anomaly badges on mine screen
+  const anom=document.getElementById('anomaly-badges');
+  if(anom&&G.anomaliesActive?.length){
+    anom.style.display='block';
+    anom.innerHTML=(G.anomaliesActive||[]).filter(a=>a.sysId===G.sys).map(a=>
+      `<button class="btn btn-sm" style="background:rgba(168,85,247,.2);border-color:var(--purple);font-size:11px"
+        onclick="exploreAnomaly('${a.id}')">${a.icon} ${a.name}</button>`).join('');
+  } else if(anom) anom.style.display='none';
   document.getElementById('m-cred').textContent=fmt(G.cr);
   document.getElementById('m-cps').textContent=cps>0?`+${fmt(cps)}/сек`:'нет авто-добычи';
   document.getElementById('m-lvl').textContent=G.lvl;
@@ -294,6 +310,8 @@ function renderMoreTab(){
   else if(moreTab==='online')  { renderOnlineRangers(); return; } // async
   else if(moreTab==='police')  { scr.innerHTML=renderPoliceHTML(); }
   else if(moreTab==='land')    { scr.innerHTML=renderLandHTML(); }
+  else if(moreTab==='story')   { scr.innerHTML=renderStoryHTML(); }
+  else if(moreTab==='events')  { scr.innerHTML=renderEventsHTML(); }
   document.getElementById('mo-cred').textContent=fmt(G.cr);
   document.getElementById('mo-rp').textContent=fmt(Math.floor(G.rp));
   document.getElementById('mo-hull').textContent=Math.floor(G.hull/G.maxHull*100)+'%';
@@ -654,6 +672,135 @@ function renderLandHTML(){
       </div>`;
     });
   }
+  return h;
+}
+
+// ── Story Chains HTML ──
+function renderStoryHTML(){
+  let h=`<div class="sh">📖 Сюжетные цепочки</div>`;
+  STORY_CHAINS.forEach(chain=>{
+    const prog=G.storyProgress[chain.id]||{step:0,done:false};
+    const started=prog.step>0;
+    const done=prog.done;
+    const stepIdx=Math.max(0,prog.step-1);
+    const curStep=chain.steps[stepIdx];
+    const pct=done?100:Math.round((stepIdx/chain.steps.length)*100);
+    h+=`<div class="card" style="margin-bottom:10px;border-color:${done?'var(--green)':started?'var(--cyan)':'var(--b1)'}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="font-size:28px">${chain.icon}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${chain.title}</div>
+          <div style="font-size:10px;color:var(--muted2)">${chain.desc}</div>
+        </div>
+        <div style="text-align:right;font-family:var(--mono);font-size:11px;color:${done?'var(--green)':'var(--muted2)'}">
+          ${done?'✅ Завершено':`${stepIdx}/${chain.steps.length}`}
+        </div>
+      </div>
+      <div style="height:3px;background:var(--b1);border-radius:2px;margin-bottom:8px">
+        <div style="height:100%;background:linear-gradient(90deg,var(--cyan),var(--purple));width:${pct}%;border-radius:2px;transition:width .3s"></div>
+      </div>`;
+    if(!done&&curStep){
+      const canClaim=(curStep.type==='arrive'&&G.sys===curStep.sys)||
+        (curStep.type==='deliver'&&G.sys===curStep.sys&&(G.cargo[curStep.good]||0)>=curStep.amt)||
+        (curStep.type==='kill'&&(prog.killCount||0)>=curStep.count);
+      h+=`<div style="font-size:11px;color:var(--cyan);margin-bottom:4px">
+          ${started?`Шаг ${prog.step}/${chain.steps.length}:`:'Следующий шаг:'} <b>${curStep.title}</b>
+        </div>
+        <div style="font-size:10px;color:var(--muted2);margin-bottom:8px">${curStep.desc}</div>`;
+      if(curStep.type==='deliver') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">
+          📦 Нужно: ${curStep.amt}× ${GOODS[curStep.good]?.name} → система ${SYSTEMS.find(s=>s.id===curStep.sys)?.name}
+          (в трюме: ${G.cargo[curStep.good]||0})
+        </div>`;
+      if(curStep.type==='arrive') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">
+          ✈️ Долетите до: ${SYSTEMS.find(s=>s.id===curStep.sys)?.name}
+          ${G.sys===curStep.sys?'<span style="color:var(--green)">✅ Вы здесь!</span>':''}
+        </div>`;
+      if(curStep.type==='kill') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">
+          ⚔️ Убито: ${prog.killCount||0}/${curStep.count}
+        </div>`;
+      h+=`<div style="display:flex;gap:6px">
+        ${!started?`<button class="btn btn-sm btn-c" onclick="startStoryChain('${chain.id}')">▶ Начать</button>`:''}
+        ${started&&canClaim?`<button class="btn btn-sm btn-g" onclick="claimStoryStep('${chain.id}')">✅ Сдать шаг</button>`:''}
+        <span style="font-size:10px;color:var(--gold);align-self:center">🏆 +${fmt(curStep.reward)} кр</span>
+      </div>`;
+    }
+    h+=`</div>`;
+  });
+  return h;
+}
+
+// ── Random Events HTML ──
+function renderEventsHTML(){
+  let h=`<div class="sh">🌪️ События</div>`;
+  if(G.activeEvent){
+    const e=G.activeEvent;
+    const absDay=G.day+(G.month-1)*30+(G.year-2450)*360;
+    const rem=Math.max(0,e.endsDay-absDay);
+    h+=`<div class="card" style="border-color:var(--gold);background:rgba(255,215,0,.06)">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:32px">${e.icon}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--gold)">${e.name}</div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:3px">${e.desc}</div>
+          <div style="font-size:10px;color:var(--cyan);margin-top:4px">⏳ Осталось: ${rem} д.</div>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    h+=`<div class="card" style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">Нет активных событий</div>`;
+  }
+  h+=`<div class="sh">📋 Все события</div>`;
+  RANDOM_EVENTS.forEach(e=>{
+    const wasActive=G.eventHistory?.some(h=>h.id===e.id);
+    h+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:4px;
+      background:var(--card);border:1px solid var(--b1);border-radius:8px;opacity:${wasActive?1:.6}">
+      <div style="font-size:20px">${e.icon}</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700">${e.name}</div>
+        <div style="font-size:10px;color:var(--muted2)">${e.desc}</div>
+      </div>
+      <div style="font-size:10px;color:var(--muted2)">${e.duration?`${e.duration}д`:'Разово'}</div>
+    </div>`;
+  });
+  // Anomalies section
+  h+=`<div class="sh">🔮 Аномалии ${G.anomaliesFound?`(найдено: ${G.anomaliesFound})`:''}</div>`;
+  const active=(G.anomaliesActive||[]).filter(a=>a.sysId===G.sys);
+  if(active.length){
+    active.forEach(a=>{
+      h+=`<div class="card" style="border-color:var(--purple)">
+        <div style="display:flex;align-items:center;gap:10px;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:28px">${a.icon}</div>
+            <div>
+              <div style="font-size:13px;font-weight:700">${a.name}</div>
+              <div style="font-size:10px;color:var(--muted2)">${a.desc}</div>
+              <div style="font-size:10px;color:var(--red)">⚠️ Опасность: ${Math.round(a.danger*100)}%</div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-c" onclick="exploreAnomaly('${a.id}')">🔍 Исследовать</button>
+        </div>
+      </div>`;
+    });
+  } else {
+    h+=`<div style="font-size:11px;color:var(--muted2);padding:8px">Нет аномалий в текущей системе. Исследуйте опасные и научные системы.</div>`;
+  }
+  if(G.anomalyLog?.length){
+    h+=`<div class="sh">История аномалий</div>`;
+    G.anomalyLog.slice(0,5).forEach(a=>{
+      const rStr=Object.entries(a.reward||{}).filter(([k])=>k!=='teleport').map(([k,v])=>`+${v} ${k}`).join(', ');
+      h+=`<div style="font-size:11px;color:var(--muted2);padding:4px 8px">${a.icon} ${a.name} — ${rStr}</div>`;
+    });
+  }
+  ANOMALIES.forEach(a=>{
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:3px;
+      background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.15);border-radius:8px">
+      <div style="font-size:18px">${a.icon}</div>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:700">${a.name}</div>
+        <div style="font-size:9px;color:var(--muted2)">${a.desc} · Опасность ${Math.round(a.danger*100)}%</div>
+      </div>
+    </div>`;
+  });
   return h;
 }
 

@@ -30,8 +30,14 @@ function genStarParticles(){
 }
 
 function setGalaxy(idx,btn){
+  const gal=GALAXIES[idx];
+  if(gal.unlock>G.lvl){toast(`🔒 Нужен уровень ${gal.unlock}`,'bad');return;}
+  if(gal.reqTech&&!hasTech(gal.reqTech)){
+    const tname={warp:'Варп-ядро',quantum:'Квантум',omega:'Омега-драйв'}[gal.reqTech]||gal.reqTech;
+    toast(`🔒 Нужна технология: ${tname}`,'bad');return;
+  }
   document.querySelectorAll('.gtab').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
+  btn?.classList.add('on');
   gxGal=idx; selSys=null; closePanel();
   genStarParticles();
   drawGalaxy();
@@ -46,11 +52,21 @@ function drawGalaxy(){
 
   // ── Background nebula ──
   const nebulaColors=[
-    ['5,25,60','0,160,255'],   // alpha — blue
-    ['40,10,50','180,0,255'],  // beta — purple
-    ['10,40,20','0,255,120'],  // gamma — green
-    ['60,5,5','255,40,0'],     // chaos — red
-  ][gxGal];
+    ['5,25,60','0,160,255'],    // alpha — blue
+    ['40,10,50','180,0,255'],   // beta — purple
+    ['10,40,20','0,255,120'],   // gamma — green
+    ['60,5,5','255,40,0'],      // chaos — red
+    ['60,10,40','255,100,200'], // nebula — pink
+    ['30,30,30','180,180,180'], // iron — gray
+    ['5,5,5','80,80,80'],       // void — dark
+    ['10,40,50','100,240,255'], // crystal — cyan
+    ['60,20,0','255,80,0'],     // inferno — orange
+    ['5,40,10','80,255,80'],    // eden2 — bright green
+    ['20,15,40','120,80,220'],  // shadow — indigo
+    ['40,40,0','255,220,0'],    // storm — yellow
+    ['35,25,5','200,150,20'],   // ancient — gold
+    ['40,0,40','220,0,220'],    // omega — magenta
+  ][Math.min(gxGal, 13)];
   const bg=ctx.createRadialGradient(W*.5,H*.45,0,W*.5,H*.45,W*.85);
   bg.addColorStop(0,`rgba(${nebulaColors[0]},0.7)`);
   bg.addColorStop(0.5,`rgba(${nebulaColors[0]},0.3)`);
