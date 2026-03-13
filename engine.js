@@ -65,6 +65,8 @@ function advanceTime(){
     checkAlienInvasion();
     leagueSeasonTick();
     harvestLandPlots();
+    dailyUpkeep();
+    processQuestFailures();
   }
 }
 function timeStr(){
@@ -77,12 +79,124 @@ function travelDays(sys){
   return Math.ceil(cost/8); // ~8 fuel per game-day of travel
 }
 
+function smoothEnemyTier(baseTier=1){
+  const allowed=Math.maxLicensedTier();
+  const p=calcRangerPower();
+  let soft=1;
+  if(p>=80) soft=2;
+  if(p>=180) soft=3;
+  if(p>=320) soft=4;
+  if(p>=520) soft=5;
+  return Math.max(1, Math.min(Math.min(allowed,soft), baseTier));
+}
+
+function absDay(){ return G.day+(G.month-1)*30+(G.year-2450)*360; }
+function getDebtLimit(){ return 5000 + G.lvl*2500 + (G.completedQ||0)*3000; }
+function pushFinanceLog(msg){
+  if(!G.financeLog) G.financeLog=[];
+  G.financeLog.unshift(msg);
+  if(G.financeLog.length>8) G.financeLog=G.financeLog.slice(0,8);
+}
+function chargeExpense(amount, reason='расход'){
+  amount=Math.max(0,Math.round(amount||0));
+  if(!amount) return 0;
+  if(G.cr>=amount){ G.cr-=amount; pushFinanceLog(`💸 ${reason}: -${fmt(amount)} кр`); return 0; }
+  const debtAdd=amount-G.cr;
+  if(G.cr>0) pushFinanceLog(`💸 ${reason}: -${fmt(G.cr)} кр`);
+  G.cr=0;
+  G.debt=(G.debt||0)+debtAdd;
+  pushFinanceLog(`🏦 Долг: +${fmt(debtAdd)} кр (${reason})`);
+  toast(`🏦 Не хватило ${fmt(debtAdd)} кр — оформлен долг`,`warn`);
+  checkBankruptcy();
+  return debtAdd;
+}
+function repayDebt(amount){
+  amount=Math.max(0,Math.round(amount||0));
+  if(!amount||!(G.debt>0)||G.cr<=0) return 0;
+  const pay=Math.min(amount,G.debt,G.cr);
+  G.cr-=pay; G.debt-=pay;
+  pushFinanceLog(`🏦 Погашение долга: ${fmt(pay)} кр`);
+  if(G.debt<=0){ G.debt=0; toast('✅ Долг погашен','good'); }
+  return pay;
+}
+function autoDebtPayment(){
+  if(!(G.debt>0)||G.cr<2000) return;
+  const pay=Math.max(50,Math.floor(Math.min(G.debt, G.cr*0.12)));
+  repayDebt(pay);
+}
+function dailyUpkeep(){
+  const helperCount=Object.values(G.helpers||{}).reduce((a,b)=>a+(b||0),0);
+  const rangerCount=Object.values(G.rangers||{}).reduce((a,b)=>a+(b||0),0);
+  const plots=Object.values(G.landPlots||{}).reduce((a,p)=>a+((p&&p.level)||0),0);
+  const upkeep=helperCount*12 + rangerCount*22 + plots*35 + Math.max(0,G.lvl-1)*3;
+  if(upkeep>0) chargeExpense(upkeep,'обслуживание флота');
+}
+function processQuestFailures(){
+  const nowDay=absDay();
+  (G.quests||[]).forEach(q=>{
+    if(q.done||q.failed||!q.accepted) return;
+    if(q.expires && q.expires<=nowDay){
+      q.failed=true; q.failedDay=nowDay;
+      G.failedQ=(G.failedQ||0)+1;
+      const fine=Math.max(250, Math.round((q.reward||500)*0.35));
+      chargeExpense(fine,`штраф за провал задания`);
+      addPoliceRep(G.gal,-6);
+      addHonor(-8);
+      addInfluence(q.sysId ? (SYSTEMS.find(s=>s.id===q.sysId)?.gal||G.gal) : G.gal, -10);
+      addLeagueScore(-10);
+      toast(`📉 Задание провалено: ${q.title}`,'bad');
+    }
+  });
+}
+function seizeForBankruptcy(){
+  let seized=[];
+  const cargoKeys=Object.keys(G.cargo||{}).filter(k=>(G.cargo[k]||0)>0);
+  if(cargoKeys.length){
+    const key=cargoKeys.sort((a,b)=>(GOODS[b]?.base||0)-(GOODS[a]?.base||0))[0];
+    const qty=Math.max(1,Math.ceil((G.cargo[key]||0)*0.5));
+    G.cargo[key]=Math.max(0,(G.cargo[key]||0)-qty);
+    if(G.cargo[key]<=0){ delete G.cargo[key]; if(G.cargoCost) delete G.cargoCost[key]; }
+    seized.push(`${GOODS[key]?.name||key} ×${qty}`);
+  }
+  const helperKeys=Object.keys(G.helpers||{}).filter(k=>(G.helpers[k]||0)>0);
+  if(helperKeys.length){
+    const hk=helperKeys[0]; G.helpers[hk]--; if(G.helpers[hk]<=0) delete G.helpers[hk];
+    seized.push(`помощник ${HELPERS.find(h=>h.id===hk)?.name||hk}`);
+  }
+  const rangerKeys=Object.keys(G.rangers||{}).filter(k=>(G.rangers[k]||0)>0);
+  if(rangerKeys.length){
+    const rk=rangerKeys[0]; G.rangers[rk]--; if(G.rangers[rk]<=0) delete G.rangers[rk];
+    seized.push(`рейнджер ${RANGER_BOTS.find(r=>r.id===rk)?.name||rk}`);
+  }
+  return seized;
+}
+function checkBankruptcy(){
+  const lim=getDebtLimit();
+  if((G.debt||0) < lim) return false;
+  const seized=seizeForBankruptcy();
+  G.bankruptcies=(G.bankruptcies||0)+1;
+  G.debt=Math.round(lim*0.45);
+  G.fuel=Math.max(12,Math.round(G.maxFuel*0.25));
+  G.hull=Math.max(15,Math.round(G.maxHull*0.35));
+  addPoliceRep(G.gal,-12); addHonor(-15); addInfluence(G.gal,-18);
+  pushFinanceLog(`⚠️ Процедура разорения #${G.bankruptcies}`);
+  toast(`💥 Разорение! Имущество изъято${seized.length?': '+seized.join(', '):''}`,'bad');
+  return true;
+}
+function payDebtAll(){
+  const paid=repayDebt(G.debt||0);
+  if(curScreen==='more') renderMoreTab();
+  if(curScreen==='mine') renderMine();
+  updateHUD();
+  return paid;
+}
+
 // ── Quests ──
 const QUEST_GEN=[
   {type:'deliver',weight:4},{type:'kill',weight:3},{type:'collect',weight:3},
 ];
 function refreshQuests(){
-  G.quests=G.quests.filter(q=>!q.done&&(!q.expires||q.expires>G.day+(G.month-1)*30+(G.year-2450)*360));
+  G.quests=G.quests.filter(q=>!q.done&&!q.failed&&(!q.expires||q.expires>absDay()));
   const perSys=2;
   MAYORS.forEach(m=>{
     const existing=G.quests.filter(q=>q.sysId===m.sysId).length;
@@ -103,7 +217,7 @@ function refreshQuests(){
       const amt=2+Math.floor(Math.random()*5);
       q.need={good,amt,destSys:dest.id};
       q.title=`Доставить ${GOODS[good].name} → ${dest.name}`;
-      q.desc=`Возьмите ${amt}× ${GOODS[good].name} и доставьте в систему ${dest.name}. Товар нужно продать там.`;
+      q.desc=`Возьмите ${amt}× ${GOODS[good].name} и доставьте в систему ${dest.name}. Сдача выполняется вручную в журнале заданий.`;
       q.icon='📦';q.color='#00c8ff';
     } else if(type==='kill'){
       const tier=Math.min(PIRATES.length-1,Math.floor(G.lvl/5)+1);
@@ -133,11 +247,16 @@ function completeQuest(q){
   if(q.done) return;
   q.done=true;q.doneDay=G.day;
   G.cr+=q.reward;G.totalCr+=q.reward;G.xp+=q.xp||20;G.rp+=q.rp||5;
-  G.completedQ++;
-  G.history=G.history||[];
-  G.history.unshift({type:'quest',id:q.id,title:q.title,day:G.day,month:G.month,year:G.year,reward:q.reward});
-  G.history=G.history.slice(0,100);
-  if(Math.random()<0.35){ G.xeno=(G.xeno||0)+1; toast('💎 Найден ксенокристалл','good'); }
+  G.completedQ++; addHonor(3); addInfluence(SYSTEMS.find(s=>s.id===q.sysId)?.gal||G.gal, 6); addClassXP('quest', Math.max(20, Math.round((q.reward||0)/40))); unlockEligibleLicenses();
+  if(Math.random()<0.25){ G.cargo.xeno=(G.cargo.xeno||0)+1; pushFinanceLog('🧪 Получен ксенокристалл за контракт'); }
+  if(q.type==='deliver'&&q.need?.good){
+    const have=G.cargo[q.need.good]||0;
+    const remove=Math.min(have,q.need.amt||0);
+    if(remove>0){
+      G.cargo[q.need.good]-=remove;
+      if(G.cargo[q.need.good]<=0){ delete G.cargo[q.need.good]; if(G.cargoCost) delete G.cargoCost[q.need.good]; }
+    }
+  }
   addPoliceRep(G.gal,5);
   addLeagueScore(20);
   toast(`🎉 Задание выполнено! +${fmt(q.reward)} кр`,'good');
@@ -148,19 +267,7 @@ function acceptQuest(qId){
   if(!q||q.accepted||q.done) return;
   q.accepted=true;toast('📋 Задание принято!');renderQuests();
 }
-function claimDeliverQuest(qId){
-  const q=G.quests.find(q=>q.id===qId);
-  if(!q||q.done||q.type!=='deliver'||!q.accepted) return;
-  if(G.sys!==q.need.destSys){toast('Нужно прибыть в систему назначения','bad');return;}
-  const have=G.cargo?.[q.need.good]||0;
-  if(have<q.need.amt){toast('Недостаточно товара в трюме','bad');return;}
-  G.cargo[q.need.good]-=q.need.amt;
-  if((G.cargo[q.need.good]||0)<=0){ delete G.cargo[q.need.good]; if(G.cargoCost) delete G.cargoCost[q.need.good]; }
-  q.progress=q.need.amt;
-  completeQuest(q);
-  toast(`📦 Груз сдан: ${GOODS[q.need.good].name}`,'good');
-  renderQuests(); if(typeof renderTrade==='function' && curScreen==='trade') renderTrade();
-}
+function acceptCollect(qId){ return acceptQuest(qId); }
 function claimKillQuest(qId){
   const q=G.quests.find(q=>q.id===qId);
   if(!q||q.done||q.type!=='kill') return;
@@ -173,10 +280,22 @@ function claimCollectQuest(qId){
   if((q.progress||0)<q.need.count){toast('Ещё не выполнено','bad');return;}
   completeQuest(q);renderQuests();
 }
+
+function claimDeliverQuest(qId){
+  const q=G.quests.find(q=>q.id===qId);
+  if(!q||q.done||q.type!=='deliver') return;
+  if(G.sys!==q.need.destSys){toast('Сдать груз можно только в системе назначения','bad');return;}
+  const have=G.cargo[q.need.good]||0;
+  const delivered=Math.min(have,q.need.amt||0);
+  if(delivered<(q.need.amt||0)){toast('Недостаточно груза для сдачи','bad');return;}
+  q.progress=q.need.amt;
+  completeQuest(q);renderQuests();updateHUD();
+}
 function updateQuestBadge(){
   const completable=G.quests.filter(q=>q.accepted&&!q.done&&(
     (q.type==='kill'&&(q.progress||0)>=q.need.count)||
-    (q.type==='collect'&&(q.progress||0)>=q.need.count)
+    (q.type==='collect'&&(q.progress||0)>=q.need.count)||
+    (q.type==='deliver'&&G.sys===q.need.destSys&&(G.cargo[q.need.good]||0)>=(q.need.amt||0))
   )).length;
   const nb=document.getElementById('nb-quest');
   if(!nb) return;
@@ -201,7 +320,7 @@ function collectDebris(dbId){
   // collect quests progress
   G.quests.forEach(q=>{
     if(!q.done&&q.accepted&&q.type==='collect'&&q.need.debrisType===d.type){
-      q.progress=(q.progress||0)+1;
+      q.progress=Math.min(q.need.count,(q.progress||0)+1);
     }
   });
   toast(`${d.icon} +${fmt(d.reward)} кр`,'good');haptic('medium');renderMoreTab();
@@ -264,11 +383,47 @@ function addPoliceRep(gal,amt){
 }
 
 // ── Alien invasions ──
+function getAlienRaceDef(raceId){
+  const map={zorg:{icon:'🟢',name:'ЗORG'},technoid:{icon:'🔵',name:'Техноиды'},psi:{icon:'🟣',name:'Пси-разум'}};
+  return map[raceId]||{icon:'👽',name:'Пришельцы'};
+}
+function buildAlienWave(sys,raceId){
+  const pool=ALIEN_TYPES.filter(a=>a.race===raceId && a.id!=='mothership');
+  const count=8+Math.floor(Math.random()*3);
+  const galFactor=Math.max(0, GALAXIES.findIndex(g=>g.id===sys.gal));
+  const maxThreat=Math.min(4, 2+Math.floor(G.lvl/18)+Math.floor(galFactor/2));
+  const wave=[];
+  for(let i=0;i<count;i++) {
+    const filtered=pool.filter(a=>(a.threat||1)<=maxThreat + (i>count-3?1:0));
+    const choice=(filtered.length?filtered:pool)[Math.floor(Math.random()*(filtered.length?filtered:pool).length)];
+    wave.push(choice.id);
+  }
+  if(count>=9 && Math.random()<0.45) wave[count-1]='mothership';
+  return wave;
+}
+function normalizeAlienInvasion(inv){
+  if(!inv) return null;
+  if(!inv.race){
+    const base=ALIEN_TYPES.find(a=>a.id===inv.alienId)||ALIEN_TYPES.find(a=>a.id===inv.alienIds?.[0]);
+    inv.race=base?.race||'zorg';
+  }
+  const raceDef=getAlienRaceDef(inv.race);
+  inv.raceIcon=inv.raceIcon||raceDef.icon;
+  inv.raceName=inv.raceName||raceDef.name;
+  if(!Array.isArray(inv.alienIds) || !inv.alienIds.length){
+    inv.alienIds=[inv.alienId||ALIEN_TYPES.find(a=>a.race===inv.race)?.id||'zorg_scout'];
+  }
+  inv.alienId=inv.alienId||inv.alienIds[0];
+  return inv;
+}
 function checkAlienInvasion(){
-  SYSTEMS.filter(s=>s.type==='danger'||s.gal==='gamma'||s.gal==='chaos').forEach(sys=>{
+  G.alienInvasion=normalizeAlienInvasion(G.alienInvasion);
+  SYSTEMS.filter(s=>s.type==='danger'||s.gal==='gamma'||s.gal==='chaos'||s.gal==='delta'||s.gal==='omega').forEach(sys=>{
     if(Math.random()<0.04&&!G.alienInvasion){
-      const race=ALIEN_TYPES[Math.floor(Math.random()*3)];
-      G.alienInvasion={sysId:sys.id,race:race.id,raceIcon:race.icon,raceName:race.name,spawnDay:G.day};
+      const raceId=['zorg','technoid','psi'][Math.floor(Math.random()*3)];
+      const race=getAlienRaceDef(raceId);
+      const alienIds=buildAlienWave(sys,raceId);
+      G.alienInvasion={sysId:sys.id,race:raceId,raceIcon:race.icon,raceName:race.name,spawnDay:G.day,alienIds,alienId:alienIds[0]};
       toast(`👾 Вторжение! ${race.icon}${race.name} в ${sys.name}!`,'bad');
     }
   });
@@ -280,6 +435,7 @@ function onMine(e){
   const cp=calcClickPower();
   G.energy=Math.max(0,G.energy-1);
   G.cr+=cp;G.totalCr+=cp;G.xp+=cp*.1;G.rp+=calcRpMult()*.1;
+  addClassXP('science',1);
   addLeagueScore(1);
   spawnFloat(e,`+${fmt(cp)}`);
   haptic('light');
@@ -289,7 +445,7 @@ function lvlCheck(){
   const need=xpForLvl(G.lvl);
   if(G.xp>=need&&G.lvl<100){
     G.lvl++;G.xp-=need;G.skillPts=(G.skillPts||0)+1;
-    G.maxHull=calcMaxHull();G.hull=G.maxHull;
+    G.maxHull=calcMaxHull();G.hull=G.maxHull; unlockEligibleLicenses();
     toast(`🎉 Уровень ${G.lvl}! +1 очко навыка`,'good');hapticN('success');
     addLeagueScore(50);
   }
@@ -298,8 +454,12 @@ function buyHelper(id){
   const h=HELPERS.find(x=>x.id===id);
   const owned=G.helpers[id]||0;
   const cost=Math.round(h.cost*Math.pow(h.costM,owned));
+  const crystalNeed=id==='miner' ? (2+owned) : 0;
   if(G.cr<cost){toast('💸 Мало кредитов','bad');return;}
-  G.cr-=cost;G.helpers[id]=(G.helpers[id]||0)+1;
+  if(crystalNeed>0 && (G.cargo.xeno||0)<crystalNeed){toast(`Нужно ${crystalNeed} ксенокристаллов`,'bad');return;}
+  G.cr-=cost;
+  if(crystalNeed>0){ G.cargo.xeno=(G.cargo.xeno||0)-crystalNeed; if(G.cargo.xeno<=0) delete G.cargo.xeno; }
+  G.helpers[id]=(G.helpers[id]||0)+1; addClassXP('science', Math.max(8, owned+4));
   toast(`${h.icon} Нанят: ${h.name}`,'good');hapticN('success');
   renderMine();updateHUD();
 }
@@ -310,7 +470,7 @@ function buyShipUpg(id){
   const cost=u.costs[lvl];
   if(G.cr<cost){toast('💸 Мало кредитов','bad');return;}
   G.cr-=cost;G.upgrades[id]=(G.upgrades[id]||0)+1;
-  G.maxHull=calcMaxHull();
+  G.maxHull=calcMaxHull(); addClassXP('science', 6+lvl*2);
   toast(`${u.icon} Улучшено: ${u.name} Ур.${lvl+1}`,'good');hapticN('success');
   renderMine();updateHUD();
 }
@@ -328,6 +488,39 @@ function spawnFloat(e,text){
 function capturedIncome(){
   if(!G.capturedSystems||!G.capturedSystems.length) return;
   G.capturedSystems.forEach(()=>{ const inc=Math.floor(10*G.lvl);G.cr+=inc;G.totalCr+=inc; });
+}
+
+function getNearestRescueSystem(){
+  const cur=SYSTEMS.find(s=>s.id===G.sys);
+  const sameGalSafe=SYSTEMS.filter(s=>s.gal===G.gal && ['home','trade','paradise','science'].includes(s.type));
+  if(sameGalSafe.length) return sameGalSafe[0];
+  return SYSTEMS.find(s=>s.type==='home')||cur||SYSTEMS[0];
+}
+function handleShipDestroyed(){
+  G.shipLosses=(G.shipLosses||0)+1;
+  addHonor(-4);
+  addInfluence(G.gal,-5);
+  const rescue=getNearestRescueSystem();
+  const penalty=Math.max(700,Math.floor((G.cr+((G.debt||0)*0.15))*0.22));
+  chargeExpense(penalty,'страховой ремонт после уничтожения');
+  const cargoEntries=Object.entries(G.cargo||{}).filter(([,amt])=>amt>0);
+  let cargoMsg='';
+  if(cargoEntries.length){
+    const [gId,amt]=cargoEntries[Math.floor(Math.random()*cargoEntries.length)];
+    const lost=Math.max(1,Math.ceil(amt*0.5));
+    G.cargo[gId]=Math.max(0,amt-lost);
+    if(G.cargo[gId]<=0) delete G.cargo[gId];
+    if(G.cargoCost && !G.cargo[gId]) delete G.cargoCost[gId];
+    cargoMsg=` Потеряно ${lost} ед. ${GOODS[gId]?.name||gId}.`;
+  }
+  G.sys=rescue.id;
+  G.gal=rescue.gal;
+  G.hull=Math.max(1,Math.round(G.maxHull*0.2));
+  G.energy=Math.max(5,Math.round(G.maxEnergy*0.35));
+  G.fuel=Math.max(10,Math.round(G.maxFuel*0.15));
+  G.combat=null;
+  G.combatLog=[`🚑 Спасательная капсула доставила вас на ${rescue.name}.`,`🔧 Аварийный ремонт завершён.`,`💸 Страховые удержания: ${fmt(penalty)} кр.${cargoMsg}`];
+  toast(`💀 Корабль уничтожен. Эвакуация на ${rescue.name}`,'bad');
 }
 
 // ── Refueling ──
@@ -360,7 +553,7 @@ function tick(){
   G.fuel=Math.min(G.maxFuel,G.fuel+dt*0.05);
   if(hasTech('regen'))   G.hull=Math.min(G.maxHull,G.hull+dt*5);
   if(hasTech('fortress'))G.hull=Math.min(G.maxHull,G.hull+dt*3);
-  advanceTime();lvlCheck();
+  advanceTime();autoDebtPayment();lvlCheck();
   if(!_uiReady) return;
   if(curScreen==='mine') renderMine();
   updateHUD();

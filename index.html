@@ -354,116 +354,6 @@ body::after{
 .ns-err{font-size:11px;color:var(--red);min-height:18px;margin-top:6px}
 .ns-hint{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5}
 
-
-
-/* DESIGN UPGRADE */
-body::before{
-  content:'';position:fixed;inset:-12%;pointer-events:none;z-index:0;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(0,200,255,.18), transparent 26%),
-    radial-gradient(circle at 82% 12%, rgba(168,85,247,.16), transparent 28%),
-    radial-gradient(circle at 72% 72%, rgba(0,255,136,.12), transparent 24%),
-    radial-gradient(circle at 28% 82%, rgba(255,149,0,.10), transparent 22%),
-    linear-gradient(180deg,#020812 0%, #07111f 48%, #030814 100%);
-  filter:saturate(1.15) blur(0px);
-}
-.screen{position:relative}
-.screen::before{
-  content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
-  background:linear-gradient(180deg,rgba(255,255,255,.015),rgba(255,255,255,0) 18%,rgba(0,0,0,.08));
-}
-.scr{position:relative;z-index:1;padding:14px 14px 18px}
-.hud{
-  position:relative;z-index:2;padding:10px 14px;background:linear-gradient(180deg,rgba(6,16,30,.92),rgba(6,16,30,.72));
-  border-bottom:1px solid rgba(113,203,255,.15);box-shadow:0 14px 38px rgba(0,0,0,.22)
-}
-.hud::after{
-  content:'';position:absolute;left:14px;right:14px;bottom:-1px;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(0,200,255,.45),transparent)
-}
-.hud-c{min-width:58px}
-.hud-v{font-size:14px;text-shadow:0 0 14px rgba(0,200,255,.18)}
-.rank-badge{box-shadow:0 10px 28px rgba(255,215,0,.22), inset 0 1px 0 rgba(255,255,255,.35)}
-.nav{
-  position:relative;z-index:2;margin:0 10px 10px;border:1px solid rgba(113,203,255,.14);border-radius:20px;
-  background:linear-gradient(180deg,rgba(7,14,24,.94),rgba(4,10,18,.86));backdrop-filter:blur(16px);
-  box-shadow:0 18px 42px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.05);overflow:hidden
-}
-.nb{padding:10px 2px 8px}
-.nb.on{background:linear-gradient(180deg,rgba(0,180,255,.10),rgba(0,180,255,.03))}
-.nb.on::after{left:22%;right:22%;height:3px;border-radius:999px}
-.ni{font-size:19px}
-.card,.skill-card,.ranger-card,.debris-card,.quest-card,.equip-card,.good-row,.tech-card,.mstat,.sys-panel,.combat-arena{
-  background:linear-gradient(180deg,rgba(14,28,48,.94),rgba(8,18,32,.92));
-  border-color:rgba(114,200,255,.12)!important;
-  box-shadow:0 16px 34px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.03)
-}
-.card::after,.quest-card::after,.good-row::after,.tech-card::after,.equip-card::after,.ranger-card::after,.debris-card::after{
-  content:'';position:absolute;inset:auto 0 0 0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,255,229,.18),transparent)
-}
-.sh{font-size:10px;letter-spacing:2.6px;color:#82a7c9;margin:16px 0 9px}
-.btn{font-weight:700;letter-spacing:.2px;box-shadow:0 10px 20px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.05)}
-.btn-c{background:linear-gradient(180deg,rgba(0,200,255,.18),rgba(0,200,255,.08))}
-.btn-g{background:linear-gradient(180deg,rgba(0,255,136,.16),rgba(0,255,136,.07))}
-.btn-r{background:linear-gradient(180deg,rgba(255,58,58,.16),rgba(255,58,58,.07))}
-.btn-p{background:linear-gradient(180deg,rgba(168,85,247,.18),rgba(168,85,247,.07))}
-.btn-gold{background:linear-gradient(180deg,rgba(255,215,0,.18),rgba(255,215,0,.07))}
-.hero-panel{
-  position:relative;overflow:hidden;padding:16px 16px 14px;border-radius:22px;margin-bottom:12px;
-  background:
-    radial-gradient(circle at 85% 18%, rgba(0,255,229,.18), transparent 26%),
-    radial-gradient(circle at 16% 110%, rgba(168,85,247,.20), transparent 34%),
-    linear-gradient(135deg, rgba(10,26,50,.98), rgba(7,16,30,.96));
-  border:1px solid rgba(96,198,255,.18);box-shadow:0 24px 48px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.04)
-}
-.hero-panel::before{
-  content:'';position:absolute;inset:0;
-  background:linear-gradient(115deg,transparent 0 48%,rgba(255,255,255,.045) 52%,transparent 56%);
-  pointer-events:none
-}
-.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;position:relative;z-index:1}
-.hero-kicker{font-size:10px;text-transform:uppercase;letter-spacing:2.8px;color:#7ea2c6;margin-bottom:6px}
-.hero-title{font-size:26px;font-weight:900;line-height:1.03;color:#f5fbff;text-shadow:0 0 24px rgba(0,200,255,.12)}
-.hero-sub{font-size:11px;line-height:1.55;color:#9db6cd;max-width:68ch;margin-top:8px}
-.hero-icon{font-size:46px;filter:drop-shadow(0 0 18px rgba(0,200,255,.35));align-self:center}
-.hero-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;position:relative;z-index:1}
-.kpi-chip{padding:10px 10px 9px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid rgba(125,198,255,.12);min-height:70px}
-.kpi-label{font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:#7698b6;margin-bottom:5px}
-.kpi-value{font-family:var(--mono);font-size:20px;color:#fff}
-.kpi-meta{font-size:10px;color:#9ab3ca;margin-top:5px;line-height:1.35}
-.banner-line{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;position:relative;z-index:1}
-.pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.045);border:1px solid rgba(125,198,255,.12);font-size:10px;color:#bdd8ee}
-.section-shell{padding:12px;border-radius:18px;background:rgba(7,16,30,.52);border:1px solid rgba(113,203,255,.09);margin-bottom:10px}
-.planet-wrap{padding:26px 0 18px;min-height:278px}
-.planet-wrap::before{
-  content:'';position:absolute;inset:18px 0 auto 0;height:240px;pointer-events:none;
-  background:radial-gradient(circle at center, rgba(0,200,255,.10), transparent 44%);
-}
-.planet-btn{width:150px;height:150px;border:1px solid rgba(109,199,255,.24);box-shadow:0 0 70px rgba(0,200,255,.12), inset 0 0 50px rgba(0,0,0,.46), 0 24px 44px rgba(0,0,0,.25)}
-.planet-ring{opacity:.9;box-shadow:0 0 14px rgba(0,200,255,.04)}
-.orbit-dot{position:absolute;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(9,20,34,.92);border:1px solid rgba(125,198,255,.18);box-shadow:0 8px 18px rgba(0,0,0,.25)}
-.orbit-dot.sm{width:34px;height:34px;font-size:16px}.orbit-dot.md{width:42px;height:42px;font-size:20px}
-.good-row,.quest-card,.ranger-card,.debris-card{position:relative;overflow:hidden}
-.good-row{padding:12px 12px 12px 11px;border-radius:16px}
-.gi{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border:1px solid rgba(124,198,255,.10);font-size:28px}
-.gname{font-size:14px}.gprice{font-size:12px}.gbtns{gap:5px}
-.quest-card{padding:14px 14px 13px;border-radius:16px}
-.quest-card.active{border-color:rgba(255,215,0,.24)!important;box-shadow:0 16px 34px rgba(0,0,0,.24), 0 0 0 1px rgba(255,215,0,.08) inset}
-.quest-giver,.qc-type{font-weight:700}
-.galaxy-tabs{padding:10px 12px;background:linear-gradient(180deg,rgba(7,15,27,.88),rgba(7,15,27,.62));gap:6px}
-.gtab,.tc-btn{border-radius:999px;padding:7px 12px}
-#gx-wrap{background:radial-gradient(circle at 50% 35%, rgba(0,200,255,.08), transparent 26%), linear-gradient(180deg, rgba(5,12,22,.5), rgba(2,7,14,.75))}
-.sys-panel{padding:26px 16px 16px;border-top:1px solid rgba(113,203,255,.12)}
-.trade-head,.quest-head,.more-head{margin-bottom:10px}
-.mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
-.mini-stat{padding:10px 12px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(125,198,255,.10)}
-.mini-stat .v{font-family:var(--mono);font-size:18px;color:#fff;margin-top:3px}
-.mini-stat .l{font-size:9px;letter-spacing:1.6px;text-transform:uppercase;color:#7598b9}
-.helper-card-accent{position:absolute;inset:0 auto 0 0;width:3px;background:linear-gradient(180deg,var(--cyan),transparent)}
-@media (max-width:390px){
-  .hero-title{font-size:22px}.hero-grid{grid-template-columns:1fr}.kpi-chip{min-height:unset}
-}
-
 </style>
 </head>
 <body>
@@ -526,77 +416,56 @@ body::before{
     <div class="rank-badge" id="h-rank">Новичок</div>
   </div>
   <div class="scr">
-    <div class="hero-panel">
-      <div class="hero-top">
-        <div>
-          <div class="hero-kicker">оперативная панель капитана</div>
-          <div class="hero-title">Добыча. Развитие. Полёт.</div>
-          <div class="hero-sub">Поднимай кредиты, усиливай корабль и готовься к вылету в другие системы. Всё ключевое — прямо под рукой.</div>
-        </div>
-        <div class="hero-icon">🚀</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+      <div>
+        <div style="font-size:9px;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;margin-bottom:2px">⚡ КРЕДИТЫ</div>
+        <div style="font-family:var(--mono);font-size:34px;background:linear-gradient(135deg,var(--gold),var(--amber));
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1" id="m-cred">0</div>
+        <div style="font-size:11px;color:var(--green);margin-top:2px" id="m-cps">+0/сек</div>
+        <div style="font-size:10px;color:var(--muted2);margin-top:3px" id="m-debt">Долгов нет</div>
       </div>
-      <div class="hero-grid">
-        <div class="kpi-chip">
-          <div class="kpi-label">Кредиты</div>
-          <div class="kpi-value" id="m-cred">0</div>
-          <div class="kpi-meta" id="m-cps">нет авто-добычи</div>
-        </div>
-        <div class="kpi-chip">
-          <div class="kpi-label">Уровень</div>
-          <div class="kpi-value" id="m-lvl">1</div>
-          <div class="kpi-meta" id="m-sp">+1.0× НО/сек</div>
-        </div>
-        <div class="kpi-chip">
-          <div class="kpi-label">Статус</div>
-          <div class="kpi-value" style="font-size:18px">В строю</div>
-          <div class="kpi-meta">Корабль готов к циклу добычи</div>
-        </div>
-      </div>
-      <div class="banner-line">
-        <span class="pill">⛏️ Тап по планете = ручная добыча</span>
-        <span class="pill">🔬 Исследования ускоряют рост</span>
-        <span class="pill">🌌 Перелёты открывают новые рынки</span>
+      <div style="text-align:right">
+        <div style="font-family:var(--mono);font-size:22px;color:var(--cyan)" id="m-lvl">1</div>
+        <div style="font-size:9px;color:var(--muted2)">УРОВЕНЬ</div>
+        <div style="font-size:10px;color:var(--purple);margin-top:2px" id="m-sp">+1.0× НО/сек</div>
       </div>
     </div>
-    <div class="section-shell">
-      <div class="bar-row">
-        <div class="bar-hd"><span>XP</span><span id="xp-t">0/100</span></div>
-        <div class="bar-tr"><div class="bar-f bf-xp" id="xp-b" style="width:0%"></div></div>
-      </div>
-      <div class="bar-row">
-        <div class="bar-hd"><span>⚡ Энергия</span><span id="en-t">100/100</span></div>
-        <div class="bar-tr"><div class="bar-f bf-en" id="en-b" style="width:100%"></div></div>
-      </div>
-      <div class="bar-row" style="margin-bottom:0">
-        <div class="bar-hd"><span>🛡 Корпус</span><span id="hl-t">100/100</span></div>
-        <div class="bar-tr"><div class="bar-f bf-hl" id="hl-b" style="width:100%"></div></div>
-      </div>
+    <div class="bar-row">
+      <div class="bar-hd"><span>XP</span><span id="xp-t">0/100</span></div>
+      <div class="bar-tr"><div class="bar-f bf-xp" id="xp-b" style="width:0%"></div></div>
     </div>
+    <div class="bar-row">
+      <div class="bar-hd"><span>⚡ Энергия</span><span id="en-t">100/100</span></div>
+      <div class="bar-tr"><div class="bar-f bf-en" id="en-b" style="width:100%"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-hd"><span>🛡 Корпус</span><span id="hl-t">100/100</span></div>
+      <div class="bar-tr"><div class="bar-f bf-hl" id="hl-b" style="width:100%"></div></div>
+    </div>
+    <!-- Planet -->
+    <div id="class-summary"></div>
     <div class="planet-wrap">
-      <div class="planet-ring" style="position:absolute;width:185px;height:185px;border-radius:50%;border:1px solid rgba(0,180,255,.08)"></div>
-      <div class="planet-ring" style="position:absolute;width:230px;height:230px;border-radius:50%;border:1px solid rgba(0,180,255,.05)"></div>
-      <div class="orbit-dot sm" style="top:30px;left:18%">☄️</div>
-      <div class="orbit-dot md" style="top:68px;right:14%">🛰️</div>
-      <div class="orbit-dot sm" style="bottom:34px;left:22%">✨</div>
+      <div class="planet-ring" style="position:absolute;width:185px;height:185px;border-radius:50%;border:1px solid rgba(0,180,255,.06)"></div>
+      <div class="planet-ring" style="position:absolute;width:230px;height:230px;border-radius:50%;border:1px solid rgba(0,180,255,.04)"></div>
       <div class="planet-btn" id="planet-btn" onclick="onMine(event)">
         <div class="planet-glow" id="planet-glow"></div>
         <span id="planet-em">🪐</span>
       </div>
       <div class="tap-lbl" id="tap-lbl">[ ТАП = +1 · ⚡ +0.18/сек ]</div>
     </div>
+    <!-- Helpers -->
     <div class="sh">Помощники</div>
     <div id="helpers-grid" class="g2"></div>
+    <!-- Ship Upgrades -->
     <div class="sh">Апгрейды корабля</div>
     <div id="ship-upg-grid" class="g2"></div>
-    <div class="section-shell" style="padding:10px 12px;margin-top:8px">
-      <div class="hero-kicker" style="margin-bottom:8px">быстрый доступ</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('tech',null)">🔬 Тех</button>
-        <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('skills',null)">🧠 Навыки</button>
-        <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('market',null)">🏪 Рынок</button>
-        <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('police',null)">👮⛽ Полиция</button>
-        <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('land',null)">🌱 Земля</button>
-      </div>
+    <!-- Quick shortcuts -->
+    <div style="display:flex;gap:6px;padding:0 10px 8px;flex-wrap:wrap">
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('tech',null)">🔬 Тех</button>
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('skills',null)">🧠 Навыки</button>
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('market',null)">🏪 Рынок</button>
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('police',null)">👮⛽</button>
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('land',null)">🌱 Земля</button>
     </div>
   </div>
   <div class="nav">
