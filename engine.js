@@ -209,24 +209,32 @@ function collectDebris(dbId){
 
 // ── Bot rangers ──
 function tickBotRangers(){
+  // Боты не дают прямых кредитов — только НО и прогресс убийств
+  // Майнеры дают очень мало (+1 кр/тик за 1 бота — почти ничего)
   const numMiners=G.rangers['miner_b']||0;
-  const numTraders=G.rangers['trader']||0;
   const numHunters=G.rangers['hunter']||0;
   const numScouts=G.rangers['scout']||0;
+  const numTraders=G.rangers['trader']||0;
   if(numMiners>0){
-    const earn=numMiners*5;G.cr+=earn;G.totalCr+=earn;
-    G.botActions.unshift(`⛏️ Майнеры добыли +${fmt(earn)} кр`);
+    // Очень мало — 1 кр/тик за бота (раньше было 5), смысл — не доход, а дебаффер
+    const earn=numMiners*1;G.cr+=earn;G.totalCr+=earn;
+    if(Math.random()<0.1) G.botActions.unshift(`⛏️ Боты-майнеры: +${fmt(earn)} кр/тик`);
   }
   if(numHunters>0){
-    const kills=numHunters;G.killCount+=kills;
-    addLeagueScore(kills*2);
-    G.botActions.unshift(`🎯 Охотники убили ${kills} пиратов`);
+    // Охотники убивают — прогресс заданий, но без наград кредитами
+    G.killCount+=numHunters;
+    addLeagueScore(numHunters);
+    if(Math.random()<0.1) G.botActions.unshift(`🎯 Охотники: +${numHunters} убийств`);
   }
   if(numScouts>0){
-    G.rp+=numScouts*0.5;
-    G.botActions.unshift(`🔭 Разведчики +${(numScouts*0.5).toFixed(1)} НО`);
+    // Разведчики дают НО — это ценно но не ломает экономику
+    const rp=numScouts*0.2;G.rp+=rp;
+    if(Math.random()<0.1) G.botActions.unshift(`🔭 Разведчики: +${rp.toFixed(1)} НО`);
   }
-  if(G.botActions.length>10) G.botActions=G.botActions.slice(0,10);
+  if(numTraders>0){
+    if(Math.random()<0.05) G.botActions.unshift(`🤝 Торговцы: цены колеблются`);
+  }
+  if(G.botActions.length>8) G.botActions=G.botActions.slice(0,8);
 }
 
 // ── Land Plots ──
@@ -303,7 +311,7 @@ function onMine(e){
   if(G.energy<=0){toast('⚡ Нет энергии!','bad');hapticN('error');return;}
   const cp=calcClickPower();
   G.energy=Math.max(0,G.energy-1);
-  G.cr+=cp;G.totalCr+=cp;G.xp+=cp*.1;G.rp+=calcRpMult()*.1;
+  G.cr+=cp;G.totalCr+=cp;G.xp+=cp*.1;G.rp+=calcRpMult()*.01; // НО с клика — капля
   addLeagueScore(1);
   spawnFloat(e,`+${fmt(cp)}`);
   haptic('light');
@@ -377,7 +385,7 @@ function tick(){
   const now=Date.now();
   const dt=(now-lastTick)/1000;lastTick=now;
   const cps=calcCPS();
-  if(cps>0){ G.cr+=cps*dt;G.totalCr+=cps*dt;G.xp+=cps*dt*.04;G.rp+=calcRpMult()*dt*.03; }
+  if(cps>0){ G.cr+=cps*dt;G.totalCr+=cps*dt;G.xp+=cps*dt*.04;G.rp+=calcRpMult()*dt*.003; } // НО в 10х медленнее
   G.maxEnergy=Math.floor(50+G.lvl*5);
   const eRegen=0.18+(gSkill('engineering')*0.02);
   G.energy=Math.min(G.maxEnergy,G.energy+dt*eRegen);
@@ -603,3 +611,13 @@ setInterval(()=>{
   tickAnomalies();
   if(G.day%3===0) tickRandomEvents();
 },5000);
+
+// ── Dev: Reset All Progress ──
+function resetAllProgress(){
+  try{
+    localStorage.removeItem('srw_v4');
+    localStorage.removeItem('srw_v4_bak');
+    localStorage.removeItem('srw_v3');
+  }catch(e){}
+  location.reload();
+}

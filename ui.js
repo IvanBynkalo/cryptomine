@@ -627,6 +627,15 @@ function renderPoliceHTML(){
     +2 репутации за пирата · +5 за задание · +20 за пришельца<br>
     -30 за захват системы · Взятка: +25 репутации
   </div>`;
+  // Dev reset button - only visible to player named Иван or for testing
+  if(G.playerName&&(G.playerName.toLowerCase().includes('иван')||G.playerName.toLowerCase().includes('ivan'))){
+    h+=`<div class="sh" style="color:var(--red)">⚠️ Сброс прогресса</div>
+    <div class="card" style="border-color:rgba(255,58,58,.3)">
+      <div style="font-size:12px;margin-bottom:8px">Полный сброс прогресса игрока. Сохранение будет очищено.</div>
+      <button class="btn btn-sm" style="border-color:var(--red);color:var(--red)"
+        onclick="if(confirm('Сбросить весь прогресс?')) resetAllProgress()">🗑️ Сбросить прогресс</button>
+    </div>`;
+  }
   return h;
 }
 
@@ -1048,6 +1057,36 @@ let catalogAvailOnly=false;
 let catalogSearch='';
 let catalogCompareId=null;
 
+
+// ── Перевод названий характеристик ──
+function _fmtStats(stats){
+  const labels={
+    atk:'⚔️Урон',def:'🛡Защита',maxHull:'❤️ХП',cargo:'📦Трюм',
+    fuelMod:'⛽Топливо',dodge:'💨Уклон',sciMod:'🔬Наука',tradeMod:'💰Торговля',
+    mineMod:'⛏Добыча',repMod:'⭐Репутация',droneDmg:'🤖Дрон-урон',
+    droneRegen:'🔧Дрон-рем',droneCount:'🤖Дронов',crit:'🎯Крит',
+    piercing:'🔓Пробитие',missileDmg:'🚀Ракета',missiles:'🚀+Ракет',
+    burnChance:'🔥Поджог',energy:'⚡Энергия',reflect:'🪞Отраж',
+    alienBonus:'👽vs Пришельцы',speed:'🚀Скорость',
+    dmgReduction:'🛡-Урон',scanRange:'📡Дальн',anomalyChance:'🔮Аномалии',
+    multiHit:'✖Попаданий',alienDef:'👽Защита vs Пришельцы',
+    warp:'Открывает галактики',instantTravel:'Мгновенный перелёт',
+    maxFuel:'⛽+Бак',thornDmg:'💢Контратака',autoCollect:'Авто-сбор'
+  };
+  return Object.entries(stats)
+    .filter(([k])=>!['slots','fuelFree','warp','instantTravel','autoCollect','autoSort',
+      'priceInfo','alienComm','alienDetect','alienWeakspot','priceManip','combatRegen',
+      'combatRevive','scanRange','psiPierce'].includes(k)&&typeof stats[k]==='number')
+    .slice(0,5)
+    .map(([k,v])=>{
+      const lbl=labels[k]||k;
+      if(k==='fuelMod') return `${lbl}:${v>0?'+':''}${Math.round(v*100)}%`;
+      if(['dodge','sciMod','tradeMod','mineMod','repMod','crit','piercing',
+          'burnChance','reflect','alienBonus','alienDef','dmgReduction','thornDmg'].includes(k))
+        return `${lbl}:${v>0?'+':''}${Math.round(v*100)}%`;
+      return `${lbl}:${v>0?'+':''}${Math.round(v*100)/100}`;
+    }).join(' · ');
+}
 function renderCatalogHTML(){
   const cats=[
     {id:'hull',   label:'Корпуса',     icon:'🚀', count:HULLS_CATALOG.length},
@@ -1128,7 +1167,7 @@ function renderCatalogHTML(){
           <div style="font-size:10px;color:var(--muted2);margin-top:2px">${item.desc}</div>
           ${unlocked?'':'<div style="font-size:9px;color:var(--red);margin-top:2px">🔒 '+lockReason+'</div>'}
           <div style="font-size:9px;color:var(--muted2);margin-top:2px">
-            ${Object.entries(item.stats||{}).filter(([k])=>!['slots'].includes(k)).slice(0,4).map(([k,v])=>`${k}:${typeof v==='number'?Math.round(v*100)/100:v}`).join(' · ')}
+            ${_fmtStats(item.stats||{})}
           </div>
           ${compareBlock}
         </div>

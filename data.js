@@ -146,30 +146,50 @@ const HELPERS=[
 
 const TECH={
   weapons:[
-    {id:'plasma',     icon:'🌀',name:'Плазма',        eff:'+8 урона',       cost:500,  rp:20, req:null},
-    {id:'torpedo',    icon:'🚀',name:'Торпеды',       eff:'+3 ракеты',      cost:800,  rp:35, req:'plasma'},
-    {id:'ionbeam',    icon:'⚡',name:'Ион-луч',       eff:'+15 урона',      cost:1500, rp:60, req:'torpedo'},
-    {id:'antimatter', icon:'💥',name:'Антиматерия',   eff:'×2 ракеты',      cost:3000, rp:120,req:'ionbeam'},
-    {id:'singularity',icon:'🌑',name:'Сингулярность', eff:'Крит 30%×3',     cost:8000, rp:300,req:'antimatter'},
+    {id:'plasma',      icon:'🌀',name:'Плазма I',       eff:'+8 урона',        cost:2000,   rp:80,  req:null},
+    {id:'torpedo',     icon:'🚀',name:'Торпеды',        eff:'+3 ракеты в бою', cost:5000,   rp:150, req:'plasma'},
+    {id:'ionbeam',     icon:'⚡',name:'Ион-луч',        eff:'+15 урона',       cost:12000,  rp:300, req:'torpedo'},
+    {id:'antimatter',  icon:'💥',name:'Антиматерия',    eff:'×2 урон ракет',   cost:35000,  rp:700, req:'ionbeam'},
+    {id:'singularity', icon:'🌑',name:'Сингулярность',  eff:'Крит 30%×3',      cost:100000, rp:2000,req:'antimatter'},
+    {id:'plasma2',     icon:'🌀',name:'Плазма II',      eff:'+20 урона доп.',  cost:8000,   rp:250, req:'plasma'},
+    {id:'scatter_t',   icon:'💢',name:'Рассеивание',    eff:'+2 попадания',    cost:20000,  rp:500, req:'plasma2'},
+    {id:'emp_tech',    icon:'⚡',name:'ЭМИ-технология', eff:'-20 энергии врага',cost:45000, rp:900, req:'scatter_t'},
   ],
   shields:[
-    {id:'armor',   icon:'🔩',name:'Броня',       eff:'+50 ХП',        cost:400,  rp:15, req:null},
-    {id:'regen',   icon:'🔋',name:'Регенерация', eff:'+5 ХП/сек',     cost:900,  rp:40, req:'armor'},
-    {id:'mirror',  icon:'🪞',name:'Зеркало',     eff:'20% отражение', cost:2000, rp:80, req:'regen'},
-    {id:'nullfield',icon:'🌐',name:'Нуль-поле',  eff:'-35% вх урона', cost:4000, rp:150,req:'mirror'},
-    {id:'fortress',icon:'🏰',name:'Крепость',    eff:'Авт-рем 3/сек', cost:10000,rp:400,req:'nullfield'},
+    {id:'armor',       icon:'🔩',name:'Броня I',        eff:'+50 ХП',          cost:1500,   rp:60,  req:null},
+    {id:'regen',       icon:'🔋',name:'Регенерация',    eff:'+5 ХП/сек',       cost:4000,   rp:140, req:'armor'},
+    {id:'mirror',      icon:'🪞',name:'Зеркальное поле',eff:'20% отражение',   cost:10000,  rp:350, req:'regen'},
+    {id:'nullfield',   icon:'🌐',name:'Нуль-поле',      eff:'-35% вх. урона',  cost:25000,  rp:800, req:'mirror'},
+    {id:'fortress',    icon:'🏰',name:'Крепость',       eff:'Авт-ремонт 3/сек',cost:70000,  rp:2000,req:'nullfield'},
+    {id:'armor2',      icon:'🔩',name:'Броня II',       eff:'+120 ХП',         cost:7000,   rp:220, req:'armor'},
+    {id:'reactive',    icon:'💢',name:'Реактивная броня',eff:'Контратака 15%', cost:18000,  rp:600, req:'armor2'},
+    {id:'nanoshield',  icon:'🌟',name:'Нано-щит',       eff:'Регенерация в бою',cost:50000, rp:1500,req:'reactive'},
   ],
   engines:[
-    {id:'turbo',   icon:'🔥',name:'Турбо',        eff:'-30% топлива',   cost:600,  rp:25, req:null},
-    {id:'warp',    icon:'🌌',name:'Варп-ядро',    eff:'Новые галактики',cost:1200, rp:55, req:'turbo'},
-    {id:'quantum', icon:'✨',name:'Квантум',       eff:'Мгновенный перелёт',cost:3500,rp:130,req:'warp'},
-    {id:'omega',   icon:'♾️',name:'Омега-драйв',  eff:'Галактика Омега',cost:15000,rp:500,req:'quantum'},
+    {id:'turbo',       icon:'🔥',name:'Турбо',          eff:'-30% топлива',    cost:2500,   rp:100, req:null},
+    {id:'warp',        icon:'🌌',name:'Варп-ядро',      eff:'Новые галактики', cost:6000,   rp:220, req:'turbo'},
+    {id:'quantum',     icon:'✨',name:'Квантум',         eff:'Мгновенный перелёт',cost:18000,rp:600, req:'warp'},
+    {id:'omega',       icon:'♾️',name:'Омега-драйв',    eff:'Галактика Омега', cost:80000,  rp:2500,req:'quantum'},
+    {id:'afterburner', icon:'💨',name:'Форсаж',         eff:'-15% топлива доп.',cost:4000,  rp:150, req:'turbo'},
+    {id:'fuel_cells',  icon:'⚗️',name:'Топливные ячейки',eff:'+30 макс. топлива',cost:9000, rp:300, req:'afterburner'},
+    {id:'gravdrive',   icon:'🌀',name:'Гравитационный',  eff:'-50% перехватов', cost:30000, rp:900, req:'fuel_cells'},
   ],
   mining:[
-    {id:'nanodrill',icon:'🔬',name:'Нано-бур',    eff:'+5 добычи',     cost:350,  rp:12, req:null},
-    {id:'orbital',  icon:'🛸',name:'Орб-майнер',  eff:'+20/сек',       cost:1000, rp:45, req:'nanodrill'},
-    {id:'stellar',  icon:'⭐',name:'Звёздный',    eff:'+100/сек',      cost:4000, rp:110,req:'orbital'},
-    {id:'galactic', icon:'🌌',name:'Галакт-жнец', eff:'+500/сек',      cost:20000,rp:400,req:'stellar'},
+    {id:'nanodrill',   icon:'🔬',name:'Нано-бур',       eff:'+5 добычи/клик', cost:1200,   rp:50,  req:null},
+    {id:'orbital',     icon:'🛸',name:'Орб-майнер',     eff:'+20 кр/сек',     cost:5000,   rp:180, req:'nanodrill'},
+    {id:'stellar',     icon:'⭐',name:'Звёздный коллектор',eff:'+100 кр/сек', cost:20000,  rp:600, req:'orbital'},
+    {id:'galactic',    icon:'🌌',name:'Галакт-жнец',    eff:'+500 кр/сек',    cost:100000, rp:2000,req:'stellar'},
+    {id:'deep_core',   icon:'⛏️',name:'Глубинное ядро', eff:'+10 добычи/клик',cost:3000,   rp:100, req:'nanodrill'},
+    {id:'resonance',   icon:'🔊',name:'Резонанс',       eff:'+50% клик в шторм',cost:8000, rp:280, req:'deep_core'},
+    {id:'antimatter_m',icon:'💠',name:'Антим. добыча',  eff:'+2× при крите',  cost:40000,  rp:1200,req:'resonance'},
+  ],
+  science:[
+    {id:'scanner_plus',icon:'📡',name:'Расширенный скан',eff:'+0.5 НО/сек',   cost:2000,   rp:70,  req:null},
+    {id:'xenolab',     icon:'🧬',name:'Ксено-лаборатория',eff:'+20% НО везде',cost:8000,   rp:280, req:'scanner_plus'},
+    {id:'deepfield',   icon:'🔭',name:'Глубинное поле', eff:'Аномалии +30%',  cost:20000,  rp:700, req:'xenolab'},
+    {id:'omni_scan',   icon:'👁️',name:'Омни-сканер',    eff:'Видит все системы',cost:50000,rp:1800,req:'deepfield'},
+    {id:'rp_boost',    icon:'⚗️',name:'НО-усилитель I', eff:'+25% к НО',      cost:4000,   rp:130, req:'scanner_plus'},
+    {id:'rp_boost2',   icon:'🧪',name:'НО-усилитель II',eff:'+50% к НО',      cost:15000,  rp:500, req:'rp_boost'},
   ],
 };
 
@@ -198,10 +218,10 @@ const EQUIPMENT_LEGACY=[
 var EQUIPMENT = EQUIPMENT_LEGACY;
 
 const RANGER_BOTS=[
-  {id:'trader',  icon:'🤝',name:'Бот-торговец', desc:'Колеблет цены каждые 30с',      cost:10000},
-  {id:'miner_b', icon:'⛏️',name:'Бот-майнер',  desc:'+20 кредитов/тик',              cost:15000},
-  {id:'hunter',  icon:'🎯',name:'Бот-охотник', desc:'Убивает 1 пирата/тик',          cost:25000},
-  {id:'scout',   icon:'🔭',name:'Бот-разведчик',desc:'+0.5 НО/тик, открывает события',cost:20000},
+  {id:'trader',  icon:'🤝',name:'Бот-торговец', desc:'Колеблет рыночные цены. Поддержка торговой стратегии.',  cost:10000},
+  {id:'miner_b', icon:'⛏️',name:'Бот-майнер',  desc:'Символическая добыча. Главный доход — ваши руки.',       cost:15000},
+  {id:'hunter',  icon:'🎯',name:'Бот-охотник', desc:'Засчитывает убийства для заданий и рейтинга.',            cost:25000},
+  {id:'scout',   icon:'🔭',name:'Бот-разведчик',desc:'Пассивное накопление НО для исследований.',              cost:20000},
 ];
 
 const PIRATES=[

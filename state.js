@@ -132,7 +132,7 @@ function calcCPS(){
   if(hasTech('orbital'))  cps+=20;
   if(hasTech('stellar'))  cps+=100;
   if(hasTech('galactic')) cps+=500;
-  cps+=(G.rangers['miner_b']||0)*20;
+  // Боты-майнеры не дают CPS — только мизер в tickBotRangers
   // land plot passive income
   if(G.landPlots) Object.values(G.landPlots).forEach(p=>{
     if(p&&p.level) cps+=p.level*5;
@@ -176,7 +176,12 @@ function calcCargoUsed(){
   return Object.values(G.cargo).reduce((a,b)=>a+b,0);
 }
 function calcRpMult(){
-  return 1+(gUpg('scanner')*0.5)+(gSkill('intellect')*0.08);
+  let m=1+(gUpg('scanner')*0.5)+(gSkill('intellect')*0.08);
+  if(hasTech('scanner_plus')) m+=0.5;
+  if(hasTech('xenolab'))      m*=1.2;
+  if(hasTech('rp_boost'))     m*=1.25;
+  if(hasTech('rp_boost2'))    m*=1.5;
+  return m;
 }
 function getRank(){
   let rank=RANKS[0];
