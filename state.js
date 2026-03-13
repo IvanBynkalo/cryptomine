@@ -4,17 +4,16 @@
 
 function freshState(){
   return{
-    cr:0,totalCr:0,xp:0,lvl:1,energy:100,maxEnergy:100,
+    cr:0,totalCr:0,xp:0,lvl:1,energy:150,maxEnergy:150,
     hull:100,maxHull:100,fuel:100,maxFuel:100,
-    missiles:3,maxMissiles:3,rp:0,skillPts:0,
-    // calendar
+    missiles:5,maxMissiles:5,rp:0,skillPts:0,
     day:1,hour:6,minute:0,month:1,year:2450,era:'Заря',
     sys:'sol',gal:'alpha',
     upgrades:{},researched:{},skills:{},
     equip:{hull:'hull_swift_m',engine:'eng_ecodrive1',weapon:'wpn_beam1',defense:'def_shield_a1'},
     owned_equip:[],
     helpers:{},rangers:{},
-    cargo:{},cargoCost:{}, // weighted avg buy price per good
+    cargo:{},cargoCost:{},
     cargoMax:20,
     quests:[],completedQ:0,
     combat:null,combatLog:[],
@@ -22,15 +21,10 @@ function freshState(){
     prices:{},priceHistory:{},
     debrisActive:[],botActions:[],
     policeRep:{},capturedSystems:[],
-    landPlots:{}, // sysId -> {good, level, lastHarvestDay}
-    // random events
-    activeEvent:null, // {id, endsDay}
-    eventHistory:[],
-    // story chains
-    storyProgress:{}, // chainId -> {step, done}
-    // anomalies
-    anomaliesFound:0,
-    anomalyLog:[],
+    landPlots:{},
+    activeEvent:null,eventHistory:[],
+    storyProgress:{},
+    anomaliesFound:0,anomalyLog:[],
     playerName:null,
     leagueSeason:1,leagueScore:0,leagueBestSeason:0,
     seasonStart:Date.now(),
@@ -38,7 +32,6 @@ function freshState(){
   };
 }
 
-// hoisted var
 var G;
 function gUpg(id)    { return (G&&G.upgrades  ? G.upgrades[id]   : 0)||0; }
 function gHelper(id) { return (G&&G.helpers   ? G.helpers[id]    : 0)||0; }
@@ -47,7 +40,6 @@ function hasTech(id) { return !!(G&&G.researched ? G.researched[id] : false); }
 
 function saveG(){
   try{
-    // keep previous save as backup slot _bak
     const prev=localStorage.getItem('srw_v4');
     if(prev) localStorage.setItem('srw_v4_bak',prev);
     localStorage.setItem('srw_v4',JSON.stringify(G));
@@ -60,38 +52,47 @@ function loadG(){
   }catch(e){ return null; }
 }
 
-// ── Init ──
 G = loadG()||freshState();
-// migrate missing fields
-// Update old equip IDs to new catalog IDs
-if(G.equip){
-  const idMap={'hull_scout':'hull_swift_m','hull_fighter':'hull_fighter_mk2','hull_cruiser':'hull_cruiser_r',
-    'hull_carrier':'hull_carrier','hull_dread':'hull_dread','eng_basic':'eng_ecodrive1',
-    'eng_turbo':'eng_razor','eng_ion':'eng_vector_core','eng_quantum':'eng_quantum_leap',
-    'wpn_laser':'wpn_beam1','wpn_plasma':'wpn_plasma_s','wpn_ion':'wpn_ion_storm','wpn_dark':'wpn_dark_matter',
-    'shld_basic':'def_shield_a1','shld_reflect':'def_mirage','shld_heavy':'def_reactive','shld_void':'def_nullfield'};
-  Object.keys(G.equip).forEach(slot=>{
-    if(idMap[G.equip[slot]]) G.equip[slot]=idMap[G.equip[slot]];
-  });
-  // rename 'shield' slot to 'defense'
-  if(G.equip.shield&&!G.equip.defense){ G.equip.defense=G.equip.shield; delete G.equip.shield; }
-}
-if(!G.month)      G.month=1;
-if(!G.year)       G.year=2450;
-if(!G.cargoCost)  G.cargoCost={};
-if(!G.landPlots)  G.landPlots={};
+
+// ── Migrate old saves ──
+if(!G.month)       G.month=1;
+if(!G.year)        G.year=2450;
+if(!G.cargoCost)   G.cargoCost={};
+if(!G.landPlots)   G.landPlots={};
 if(!G.storyProgress) G.storyProgress={};
 if(!G.eventHistory)  G.eventHistory=[];
 if(!G.anomalyLog)    G.anomalyLog=[];
+// Energy rebalance migration
+if(G.maxEnergy<150) G.maxEnergy=150+G.lvl*3;
+if(G.maxMissiles<5) G.maxMissiles=5;
+if(G.missiles<3)    G.missiles=Math.min(5,G.missiles+2);
+// Equip ID migration
+if(G.equip){
+  const idMap={
+    'hull_scout':'hull_swift_m','hull_fighter':'hull_fighter_mk2',
+    'hull_cruiser':'hull_cruiser_r','hull_carrier':'hull_carrier',
+    'hull_dread':'hull_dread','eng_basic':'eng_ecodrive1',
+    'eng_turbo':'eng_razor','eng_ion':'eng_vector_core',
+    'eng_quantum':'eng_quantum_leap','wpn_laser':'wpn_beam1',
+    'wpn_plasma':'wpn_plasma_s','wpn_ion':'wpn_ion_storm',
+    'wpn_dark':'wpn_dark_matter','shld_basic':'def_shield_a1',
+    'shld_reflect':'def_mirage','shld_heavy':'def_reactive',
+    'shld_void':'def_nullfield'
+  };
+  Object.keys(G.equip).forEach(slot=>{
+    if(idMap[G.equip[slot]]) G.equip[slot]=idMap[G.equip[slot]];
+  });
+  if(G.equip.shield&&!G.equip.defense){G.equip.defense=G.equip.shield;delete G.equip.shield;}
+}
 if(G.alienInvasion){
   if(!Array.isArray(G.alienInvasion.alienIds)) G.alienInvasion.alienIds=G.alienInvasion.alienId?[G.alienInvasion.alienId]:[];
   if(!G.alienInvasion.bossId){
-    const race=G.alienInvasion.race || (ALIEN_TYPES.find(a=>a.id===G.alienInvasion.alienId)?.race) || 'zorg';
+    const race=G.alienInvasion.race||(ALIEN_TYPES?.find(a=>a.id===G.alienInvasion.alienId)?.race)||'zorg';
     G.alienInvasion.bossId={zorg:'zorg_behemoth',technoid:'tech_dreadnought',psi:'psi_overmind'}[race]||'mothership';
   }
   if(G.alienInvasion.bossUnlocked===undefined) G.alienInvasion.bossUnlocked=!G.alienInvasion.alienIds.length;
   if(G.alienInvasion.bossDefeated===undefined) G.alienInvasion.bossDefeated=false;
-  if(G.alienInvasion.progress===undefined) G.alienInvasion.progress=0;
+  if(G.alienInvasion.progress===undefined)     G.alienInvasion.progress=0;
   if(G.alienInvasion.totalTargets===undefined) G.alienInvasion.totalTargets=(G.alienInvasion.alienIds.length||0)+1;
 }
 
@@ -110,7 +111,6 @@ if(G.alienInvasion){
 // ── Calculations ──
 function getEquipStats(){
   const stats={atk:0,def:0,reflect:0,fuelMod:0,cargo:0,maxHull:0,dodge:0,sciMod:0,tradeMod:0,mineMod:0,repMod:0};
-  // Search across all equipped slots in full catalog
   const catalog=typeof EQUIPMENT_CATALOG!=='undefined'?EQUIPMENT_CATALOG:EQUIPMENT;
   Object.values(G.equip||{}).forEach(itemId=>{
     if(!itemId) return;
@@ -120,61 +120,76 @@ function getEquipStats(){
   });
   return stats;
 }
+
 function calcClickPower(){
-  let base=1+gUpg('drill')*2+(hasTech('nanodrill')?5:0);
+  let base=1+gUpg('drill')*2+(hasTech('nanodrill')?5:0)+(hasTech('deep_core')?10:0);
   if(hasTech('orbital')) base+=20;
   if(Math.random()<gSkill('luck')*0.02) base*=2;
   return Math.ceil(base*(1+gSkill('attack')*0.02));
 }
+
 function calcCPS(){
   let cps=0;
   HELPERS.forEach(h=>{ cps+=h.cps*(G.helpers[h.id]||0); });
   if(hasTech('orbital'))  cps+=20;
   if(hasTech('stellar'))  cps+=100;
   if(hasTech('galactic')) cps+=500;
-  // Боты-майнеры не дают CPS — только мизер в tickBotRangers
   // land plot passive income
   if(G.landPlots) Object.values(G.landPlots).forEach(p=>{
     if(p&&p.level) cps+=p.level*5;
   });
+  // XP from CPS — players level by playing, not just tapping
   return cps;
 }
+
 function calcAttack(){
-  let a=10+gUpg('laser')*4+(getEquipStats().atk||0);
+  let a=15+gUpg('laser')*5+(getEquipStats().atk||0);
   if(hasTech('plasma'))    a+=8;
+  if(hasTech('plasma2'))   a+=20;
   if(hasTech('ionbeam'))   a+=15;
   if(hasTech('antimatter'))a+=20;
   return Math.round(a*(1+gSkill('attack')*0.05));
 }
+
 function calcDefense(){
-  let d=(getEquipStats().def||0)+gSkill('defense')*4;
+  let d=5+(getEquipStats().def||0)+gSkill('defense')*4;
   if(hasTech('nullfield')) d+=15;
+  if(hasTech('nanoshield'))d+=10;
   return d;
 }
+
 function calcMissileDmg(){
-  let d=35;
-  if(hasTech('torpedo'))   d+=20;
+  let d=50;
+  if(hasTech('torpedo'))   d+=30;
   if(hasTech('antimatter'))d*=2;
   return d;
 }
+
 function calcMaxHull(){
-  let h=100+gUpg('shield')*30+(getEquipStats().maxHull||0);
+  let h=150+G.lvl*8+gUpg('shield')*30+(getEquipStats().maxHull||0);
   if(hasTech('armor'))    h+=50;
+  if(hasTech('armor2'))   h+=120;
   if(hasTech('nullfield'))h+=30;
   return h;
 }
+
 function calcFuelCost(sys){
   if(hasTech('omega')) return 0;
   let c=sys.fuelCost*(1-gUpg('engine')*0.25)*(1+(getEquipStats().fuelMod||0));
-  if(hasTech('turbo')) c*=.7;
-  return Math.max(2,Math.round(c));
+  if(hasTech('turbo'))       c*=.7;
+  if(hasTech('afterburner')) c*=.85;
+  if(hasTech('fuel_cells'))  c*=.85;
+  return Math.max(1,Math.round(c));
 }
+
 function calcCargoMax(){
   return 20+gUpg('cargo')*10+(getEquipStats().cargo||0);
 }
+
 function calcCargoUsed(){
   return Object.values(G.cargo).reduce((a,b)=>a+b,0);
 }
+
 function calcRpMult(){
   let m=1+(gUpg('scanner')*0.5)+(gSkill('intellect')*0.08);
   if(hasTech('scanner_plus')) m+=0.5;
@@ -183,16 +198,20 @@ function calcRpMult(){
   if(hasTech('rp_boost2'))    m*=1.5;
   return m;
 }
+
 function getRank(){
   let rank=RANKS[0];
   for(const r of RANKS) if(G.killCount>=r.minKills&&G.lvl>=r.minLvl) rank=r;
   return rank;
 }
+
 function getRankByLvl(lvl){
   let r=RANKS[0];
   for(const rk of RANKS) if(lvl>=rk.minLvl) r=rk;
   return r.name;
 }
-function xpForLvl(l){ return Math.floor(100*Math.pow(1.85,l-1)); }
 
-// fmt -> globals.js
+// REBALANCED XP curve — much gentler, lvl10 reachable in 2 weeks
+// Old: 100 * 1.85^(l-1) → lvl10 = 25000 xp (impossible)
+// New: 80 * 1.45^(l-1)  → lvl10 = 1600 xp (achievable)
+function xpForLvl(l){ return Math.floor(100*Math.pow(1.6,l-1)); }
