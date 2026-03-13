@@ -24,21 +24,9 @@
 html{height:100%;height:100dvh}
 body{
   height:100%;height:100dvh;overflow:hidden;
-  background:radial-gradient(circle at top,#10203b 0%,#07111e 25%,#040a14 55%,#02060c 100%);
-  color:var(--text);font-family:var(--sans);
+  background:var(--bg);color:var(--text);font-family:var(--sans);
   position:relative;
 }
-.space-gradient{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.9;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(0,200,255,.13), transparent 23%),
-    radial-gradient(circle at 82% 12%, rgba(168,85,247,.16), transparent 24%),
-    radial-gradient(circle at 55% 78%, rgba(0,255,136,.08), transparent 26%),
-    linear-gradient(180deg, rgba(255,255,255,.02), transparent 18%);}
-.neb{position:fixed;border-radius:50%;filter:blur(55px);pointer-events:none;opacity:.16;z-index:0;mix-blend-mode:screen;animation:nebFloat 18s ease-in-out infinite;}
-.neb-1{width:220px;height:220px;left:-40px;top:8%;background:radial-gradient(circle, rgba(0,200,255,.9), transparent 70%);}
-.neb-2{width:260px;height:260px;right:-60px;top:18%;background:radial-gradient(circle, rgba(168,85,247,.85), transparent 72%);animation-delay:-6s;}
-.neb-3{width:240px;height:240px;left:18%;bottom:-70px;background:radial-gradient(circle, rgba(0,255,136,.7), transparent 70%);animation-delay:-12s;}
-@keyframes nebFloat{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(12px,-18px,0) scale(1.08)}}
 body::after{
   content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
   background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.025) 3px,rgba(0,0,0,.025) 4px)
@@ -58,13 +46,13 @@ body::after{
 .screen.active{display:flex}
 
 /* SCROLLABLE CONTENT */
-.scr{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 12px 18px;-webkit-overflow-scrolling:touch;min-height:0;scrollbar-width:thin;scrollbar-color:rgba(0,200,255,.35) transparent}
+.scr{flex:1;overflow-y:auto;overflow-x:hidden;padding:10px;-webkit-overflow-scrolling:touch;min-height:0}
 
 /* HUD */
 .hud{
   display:flex;align-items:center;gap:6px;padding:8px 12px;flex-shrink:0;
-  background:linear-gradient(180deg,rgba(4,12,22,.96),rgba(5,14,25,.88));border-bottom:1px solid rgba(0,200,255,.16);
-  backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(0,0,0,.22);
+  background:rgba(3,11,20,.95);border-bottom:1px solid var(--b2);
+  backdrop-filter:blur(10px);
 }
 .hud-c{display:flex;flex-direction:column;align-items:center;min-width:52px}
 .hud-v{font-family:var(--mono);font-size:13px;color:var(--cyan);line-height:1}
@@ -78,28 +66,26 @@ body::after{
 
 /* BOTTOM NAV */
 .nav{
-  display:flex;flex-shrink:0;background:linear-gradient(180deg,rgba(3,11,20,.85),rgba(4,12,22,.98));
-  border-top:1px solid rgba(0,200,255,.18);backdrop-filter:blur(12px);box-shadow:0 -10px 25px rgba(0,0,0,.28);
+  display:flex;flex-shrink:0;background:rgba(3,11,20,.97);
+  border-top:1px solid var(--b2);
   padding-bottom:max(4px,env(safe-area-inset-bottom))
 }
 .nb{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
-  padding:9px 2px 10px;border:none;background:none;cursor:pointer;position:relative;transition:.15s;border-radius:16px
+  padding:7px 2px;border:none;background:none;cursor:pointer;position:relative;transition:.15s
 }
 .nb.on::after{
   content:'';position:absolute;bottom:0;left:15%;right:15%;height:2px;
   background:var(--cyan);box-shadow:0 0 8px var(--cyan)
 }
-.ni{font-size:18px;filter:grayscale(.6);transition:.18s;transform:translateY(0)}
-.nb.on .ni,.nb:active .ni{transform:translateY(-1px) scale(1.04);text-shadow:0 0 14px rgba(0,200,255,.45)}
-.nb.on{background:linear-gradient(180deg,rgba(0,200,255,.08),rgba(0,200,255,.02));}
+.ni{font-size:18px;filter:grayscale(.6);transition:.15s}
 .nb.on .ni{filter:none}
 .nl{font-size:8px;color:var(--muted2);letter-spacing:.5px;text-transform:uppercase}
 
 /* CARDS */
 .card{
-  background:linear-gradient(180deg,rgba(10,22,38,.96),rgba(8,18,30,.96));border:1px solid rgba(0,200,255,.11);border-radius:16px;
-  padding:13px;margin-bottom:10px;position:relative;overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.02)
+  background:var(--card);border:1px solid var(--b1);border-radius:12px;
+  padding:12px;margin-bottom:8px;position:relative;overflow:hidden
 }
 .card::before{
   content:'';position:absolute;top:0;left:0;right:0;height:2px;
@@ -130,13 +116,12 @@ body::after{
 
 /* BUTTONS */
 .btn{
-  padding:10px 14px;border:1px solid rgba(0,200,255,.22);border-radius:12px;
-  background:linear-gradient(180deg,rgba(0,180,255,.1),rgba(0,180,255,.05));color:var(--cyan);font-family:var(--sans);
-  font-size:12px;font-weight:700;cursor:pointer;transition:.18s;
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 8px 18px rgba(0,0,0,.18);
+  padding:9px 14px;border:1px solid var(--b2);border-radius:10px;
+  background:rgba(0,180,255,.06);color:var(--cyan);font-family:var(--sans);
+  font-size:12px;font-weight:600;cursor:pointer;transition:.15s;
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
 }
-.btn:hover:not(:disabled){transform:translateY(-1px);border-color:rgba(0,200,255,.34)}
-.btn:active:not(:disabled){transform:scale(.96)}
+.btn:active:not(:disabled){transform:scale(.95)}
 .btn:disabled{opacity:.35;cursor:not-allowed}
 .btn-full{width:100%}
 .btn-sm{padding:5px 10px;font-size:11px;border-radius:8px}
@@ -148,10 +133,10 @@ body::after{
 
 /* SUB-TAB BUTTONS */
 .tc-btn{
-  flex-shrink:0;padding:7px 12px;border:1px solid rgba(0,200,255,.12);border-radius:999px;
-  background:rgba(3,11,20,.58);color:var(--muted2);font-size:11px;cursor:pointer;transition:.18s;backdrop-filter:blur(8px)
+  flex-shrink:0;padding:5px 11px;border:1px solid var(--b1);border-radius:20px;
+  background:rgba(0,0,0,.3);color:var(--muted2);font-size:11px;cursor:pointer;transition:.15s
 }
-.tc-btn.on{background:linear-gradient(180deg,rgba(0,180,255,.16),rgba(0,180,255,.08));border-color:rgba(0,200,255,.34);color:var(--cyan);box-shadow:0 6px 14px rgba(0,0,0,.15)}
+.tc-btn.on{background:rgba(0,180,255,.12);border-color:var(--b3);color:var(--cyan)}
 
 /* PLANET */
 .planet-wrap{
@@ -159,19 +144,15 @@ body::after{
   justify-content:center;padding:20px 0 12px;flex-shrink:0
 }
 .planet-btn{
-  width:138px;height:138px;border-radius:50%;cursor:pointer;
+  width:130px;height:130px;border-radius:50%;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.22),rgba(255,255,255,.04) 22%,rgba(5,14,26,.28) 56%,rgba(0,0,0,.82));
-  border:2px solid rgba(0,200,255,.22);
-  box-shadow:0 0 52px rgba(0,200,255,.12),0 0 100px rgba(0,200,255,.05),inset 0 0 44px rgba(0,0,0,.55);
-  position:relative;transition:transform .1s, box-shadow .2s;
+  background:radial-gradient(circle at 35% 35%,rgba(255,255,255,.08),rgba(0,0,0,.6));
+  border:2px solid rgba(0,180,255,.15);
+  box-shadow:0 0 40px rgba(0,180,255,.1),inset 0 0 30px rgba(0,0,0,.5);
+  position:relative;transition:transform .1s;
   -webkit-tap-highlight-color:transparent;
 }
-.planet-btn::before{content:'';position:absolute;inset:10px;border-radius:50%;border:1px solid rgba(255,255,255,.05)}
-.planet-btn::after{content:'';position:absolute;inset:-8px;border-radius:50%;border:1px dashed rgba(0,200,255,.12);animation:spinSlow 14s linear infinite}
-.planet-btn:hover{box-shadow:0 0 58px rgba(0,200,255,.16),0 0 110px rgba(0,200,255,.07),inset 0 0 44px rgba(0,0,0,.5)}
 .planet-btn:active{transform:scale(.93)}
-@keyframes spinSlow{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 .planet-glow{position:absolute;inset:-20px;border-radius:50%;pointer-events:none;transition:background .5s}
 #planet-em{font-size:58px;line-height:1;position:relative;z-index:1;
   filter:drop-shadow(0 0 12px rgba(0,180,255,.3))}
@@ -211,8 +192,8 @@ body::after{
 .travel-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--teal));border-radius:2px;width:0%;transition:width .05s}
 
 /* TRADE */
-.good-row{display:flex;align-items:center;gap:10px;padding:12px;
-  background:linear-gradient(180deg,rgba(10,22,38,.95),rgba(8,18,30,.96));border:1px solid rgba(0,200,255,.1);border-radius:14px;margin-bottom:8px;box-shadow:0 8px 18px rgba(0,0,0,.16)}
+.good-row{display:flex;align-items:center;gap:10px;padding:11px;
+  background:var(--card);border:1px solid var(--b1);border-radius:11px;margin-bottom:6px}
 .gi{font-size:26px;flex-shrink:0}
 .ginfo{flex:1;min-width:0}
 .gname{font-size:13px;font-weight:600}
@@ -223,8 +204,8 @@ body::after{
 
 /* COMBAT */
 .combat-arena{
-  background:radial-gradient(circle at top,rgba(0,200,255,.08),transparent 35%),linear-gradient(180deg,var(--card2),var(--card));
-  border:1px solid rgba(0,200,255,.22);border-radius:20px;padding:16px;margin-bottom:12px;box-shadow:0 18px 34px rgba(0,0,0,.28)
+  background:linear-gradient(180deg,var(--card2),var(--card));
+  border:1px solid var(--b2);border-radius:16px;padding:16px;margin-bottom:10px
 }
 .fighters{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .fighter{flex:1;text-align:center}
@@ -374,37 +355,119 @@ body::after{
 .ns-hint{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5}
 
 
-.hud-c, .rank-badge, .game-clock{position:relative;z-index:1}
-.hero-card{position:relative;padding:16px;border-radius:20px;overflow:hidden;border:1px solid rgba(0,200,255,.16);background:linear-gradient(145deg,rgba(13,27,49,.96),rgba(8,18,30,.96));box-shadow:0 18px 36px rgba(0,0,0,.26);margin-bottom:12px}
-.hero-card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at top right,rgba(0,200,255,.16),transparent 30%),radial-gradient(circle at bottom left,rgba(168,85,247,.14),transparent 28%);pointer-events:none}
-.hero-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;position:relative;z-index:1}
-.hero-kicker{font-size:9px;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px}
-.hero-title{font-family:var(--mono);font-size:30px;line-height:1;background:linear-gradient(135deg,var(--gold),var(--amber));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hero-sub{font-size:11px;color:var(--muted2);margin-top:5px}
-.hero-side{min-width:88px;text-align:right}
-.hero-side .val{font-family:var(--mono);font-size:24px;color:var(--cyan)}
-.hero-side .lbl{font-size:9px;color:var(--muted2);letter-spacing:1px;text-transform:uppercase}
-.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 0;position:relative;z-index:1}
-.kpi{padding:10px 8px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);text-align:center}
-.kpi-v{font-family:var(--mono);font-size:16px;color:var(--cyan)}
-.kpi-l{font-size:9px;color:var(--muted2);letter-spacing:.6px;text-transform:uppercase;margin-top:2px}
-.mini-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);font-size:10px;color:var(--text)}
-.mini-chip + .mini-chip{margin-left:6px}
-.orbit-dots{display:flex;gap:6px;justify-content:center;margin-top:10px;flex-wrap:wrap}
-.orbit-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.03);border:1px solid rgba(0,200,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
-.section-banner{padding:12px 14px;border-radius:16px;background:linear-gradient(145deg,rgba(12,24,42,.9),rgba(8,18,30,.94));border:1px solid rgba(0,200,255,.12);margin-bottom:10px;box-shadow:0 10px 24px rgba(0,0,0,.18)}
-.section-banner .ttl{font-size:14px;font-weight:700;margin-bottom:3px}
-.section-banner .sub{font-size:10px;color:var(--muted2);line-height:1.5}
-.soft-grid{display:grid;gap:8px}
+
+/* DESIGN UPGRADE */
+body::before{
+  content:'';position:fixed;inset:-12%;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(0,200,255,.18), transparent 26%),
+    radial-gradient(circle at 82% 12%, rgba(168,85,247,.16), transparent 28%),
+    radial-gradient(circle at 72% 72%, rgba(0,255,136,.12), transparent 24%),
+    radial-gradient(circle at 28% 82%, rgba(255,149,0,.10), transparent 22%),
+    linear-gradient(180deg,#020812 0%, #07111f 48%, #030814 100%);
+  filter:saturate(1.15) blur(0px);
+}
+.screen{position:relative}
+.screen::before{
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.015),rgba(255,255,255,0) 18%,rgba(0,0,0,.08));
+}
+.scr{position:relative;z-index:1;padding:14px 14px 18px}
+.hud{
+  position:relative;z-index:2;padding:10px 14px;background:linear-gradient(180deg,rgba(6,16,30,.92),rgba(6,16,30,.72));
+  border-bottom:1px solid rgba(113,203,255,.15);box-shadow:0 14px 38px rgba(0,0,0,.22)
+}
+.hud::after{
+  content:'';position:absolute;left:14px;right:14px;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,200,255,.45),transparent)
+}
+.hud-c{min-width:58px}
+.hud-v{font-size:14px;text-shadow:0 0 14px rgba(0,200,255,.18)}
+.rank-badge{box-shadow:0 10px 28px rgba(255,215,0,.22), inset 0 1px 0 rgba(255,255,255,.35)}
+.nav{
+  position:relative;z-index:2;margin:0 10px 10px;border:1px solid rgba(113,203,255,.14);border-radius:20px;
+  background:linear-gradient(180deg,rgba(7,14,24,.94),rgba(4,10,18,.86));backdrop-filter:blur(16px);
+  box-shadow:0 18px 42px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.05);overflow:hidden
+}
+.nb{padding:10px 2px 8px}
+.nb.on{background:linear-gradient(180deg,rgba(0,180,255,.10),rgba(0,180,255,.03))}
+.nb.on::after{left:22%;right:22%;height:3px;border-radius:999px}
+.ni{font-size:19px}
+.card,.skill-card,.ranger-card,.debris-card,.quest-card,.equip-card,.good-row,.tech-card,.mstat,.sys-panel,.combat-arena{
+  background:linear-gradient(180deg,rgba(14,28,48,.94),rgba(8,18,32,.92));
+  border-color:rgba(114,200,255,.12)!important;
+  box-shadow:0 16px 34px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.03)
+}
+.card::after,.quest-card::after,.good-row::after,.tech-card::after,.equip-card::after,.ranger-card::after,.debris-card::after{
+  content:'';position:absolute;inset:auto 0 0 0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,255,229,.18),transparent)
+}
+.sh{font-size:10px;letter-spacing:2.6px;color:#82a7c9;margin:16px 0 9px}
+.btn{font-weight:700;letter-spacing:.2px;box-shadow:0 10px 20px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.05)}
+.btn-c{background:linear-gradient(180deg,rgba(0,200,255,.18),rgba(0,200,255,.08))}
+.btn-g{background:linear-gradient(180deg,rgba(0,255,136,.16),rgba(0,255,136,.07))}
+.btn-r{background:linear-gradient(180deg,rgba(255,58,58,.16),rgba(255,58,58,.07))}
+.btn-p{background:linear-gradient(180deg,rgba(168,85,247,.18),rgba(168,85,247,.07))}
+.btn-gold{background:linear-gradient(180deg,rgba(255,215,0,.18),rgba(255,215,0,.07))}
+.hero-panel{
+  position:relative;overflow:hidden;padding:16px 16px 14px;border-radius:22px;margin-bottom:12px;
+  background:
+    radial-gradient(circle at 85% 18%, rgba(0,255,229,.18), transparent 26%),
+    radial-gradient(circle at 16% 110%, rgba(168,85,247,.20), transparent 34%),
+    linear-gradient(135deg, rgba(10,26,50,.98), rgba(7,16,30,.96));
+  border:1px solid rgba(96,198,255,.18);box-shadow:0 24px 48px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.04)
+}
+.hero-panel::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(115deg,transparent 0 48%,rgba(255,255,255,.045) 52%,transparent 56%);
+  pointer-events:none
+}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;position:relative;z-index:1}
+.hero-kicker{font-size:10px;text-transform:uppercase;letter-spacing:2.8px;color:#7ea2c6;margin-bottom:6px}
+.hero-title{font-size:26px;font-weight:900;line-height:1.03;color:#f5fbff;text-shadow:0 0 24px rgba(0,200,255,.12)}
+.hero-sub{font-size:11px;line-height:1.55;color:#9db6cd;max-width:68ch;margin-top:8px}
+.hero-icon{font-size:46px;filter:drop-shadow(0 0 18px rgba(0,200,255,.35));align-self:center}
+.hero-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;position:relative;z-index:1}
+.kpi-chip{padding:10px 10px 9px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid rgba(125,198,255,.12);min-height:70px}
+.kpi-label{font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:#7698b6;margin-bottom:5px}
+.kpi-value{font-family:var(--mono);font-size:20px;color:#fff}
+.kpi-meta{font-size:10px;color:#9ab3ca;margin-top:5px;line-height:1.35}
+.banner-line{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;position:relative;z-index:1}
+.pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.045);border:1px solid rgba(125,198,255,.12);font-size:10px;color:#bdd8ee}
+.section-shell{padding:12px;border-radius:18px;background:rgba(7,16,30,.52);border:1px solid rgba(113,203,255,.09);margin-bottom:10px}
+.planet-wrap{padding:26px 0 18px;min-height:278px}
+.planet-wrap::before{
+  content:'';position:absolute;inset:18px 0 auto 0;height:240px;pointer-events:none;
+  background:radial-gradient(circle at center, rgba(0,200,255,.10), transparent 44%);
+}
+.planet-btn{width:150px;height:150px;border:1px solid rgba(109,199,255,.24);box-shadow:0 0 70px rgba(0,200,255,.12), inset 0 0 50px rgba(0,0,0,.46), 0 24px 44px rgba(0,0,0,.25)}
+.planet-ring{opacity:.9;box-shadow:0 0 14px rgba(0,200,255,.04)}
+.orbit-dot{position:absolute;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(9,20,34,.92);border:1px solid rgba(125,198,255,.18);box-shadow:0 8px 18px rgba(0,0,0,.25)}
+.orbit-dot.sm{width:34px;height:34px;font-size:16px}.orbit-dot.md{width:42px;height:42px;font-size:20px}
+.good-row,.quest-card,.ranger-card,.debris-card{position:relative;overflow:hidden}
+.good-row{padding:12px 12px 12px 11px;border-radius:16px}
+.gi{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border:1px solid rgba(124,198,255,.10);font-size:28px}
+.gname{font-size:14px}.gprice{font-size:12px}.gbtns{gap:5px}
+.quest-card{padding:14px 14px 13px;border-radius:16px}
+.quest-card.active{border-color:rgba(255,215,0,.24)!important;box-shadow:0 16px 34px rgba(0,0,0,.24), 0 0 0 1px rgba(255,215,0,.08) inset}
+.quest-giver,.qc-type{font-weight:700}
+.galaxy-tabs{padding:10px 12px;background:linear-gradient(180deg,rgba(7,15,27,.88),rgba(7,15,27,.62));gap:6px}
+.gtab,.tc-btn{border-radius:999px;padding:7px 12px}
+#gx-wrap{background:radial-gradient(circle at 50% 35%, rgba(0,200,255,.08), transparent 26%), linear-gradient(180deg, rgba(5,12,22,.5), rgba(2,7,14,.75))}
+.sys-panel{padding:26px 16px 16px;border-top:1px solid rgba(113,203,255,.12)}
+.trade-head,.quest-head,.more-head{margin-bottom:10px}
+.mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.mini-stat{padding:10px 12px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(125,198,255,.10)}
+.mini-stat .v{font-family:var(--mono);font-size:18px;color:#fff;margin-top:3px}
+.mini-stat .l{font-size:9px;letter-spacing:1.6px;text-transform:uppercase;color:#7598b9}
+.helper-card-accent{position:absolute;inset:0 auto 0 0;width:3px;background:linear-gradient(180deg,var(--cyan),transparent)}
+@media (max-width:390px){
+  .hero-title{font-size:22px}.hero-grid{grid-template-columns:1fr}.kpi-chip{min-height:unset}
+}
 
 </style>
 </head>
 <body>
 
-<div class="space-gradient"></div>
-<div class="neb neb-1"></div>
-<div class="neb neb-2"></div>
-<div class="neb neb-3"></div>
 <!-- ── Stars background ── -->
 <div id="sf"></div>
 
@@ -463,61 +526,77 @@ body::after{
     <div class="rank-badge" id="h-rank">Новичок</div>
   </div>
   <div class="scr">
-    <div class="hero-card">
-      <div class="hero-row">
+    <div class="hero-panel">
+      <div class="hero-top">
         <div>
-          <div class="hero-kicker">⚡ Капитанский журнал</div>
-          <div class="hero-title" id="m-cred">0</div>
-          <div class="hero-sub" id="m-cps">+0/сек</div>
+          <div class="hero-kicker">оперативная панель капитана</div>
+          <div class="hero-title">Добыча. Развитие. Полёт.</div>
+          <div class="hero-sub">Поднимай кредиты, усиливай корабль и готовься к вылету в другие системы. Всё ключевое — прямо под рукой.</div>
         </div>
-        <div class="hero-side">
-          <div class="val" id="m-lvl">1</div>
-          <div class="lbl">Уровень</div>
-          <div style="font-size:10px;color:var(--purple);margin-top:4px" id="m-sp">+1.0× НО/сек</div>
+        <div class="hero-icon">🚀</div>
+      </div>
+      <div class="hero-grid">
+        <div class="kpi-chip">
+          <div class="kpi-label">Кредиты</div>
+          <div class="kpi-value" id="m-cred">0</div>
+          <div class="kpi-meta" id="m-cps">нет авто-добычи</div>
+        </div>
+        <div class="kpi-chip">
+          <div class="kpi-label">Уровень</div>
+          <div class="kpi-value" id="m-lvl">1</div>
+          <div class="kpi-meta" id="m-sp">+1.0× НО/сек</div>
+        </div>
+        <div class="kpi-chip">
+          <div class="kpi-label">Статус</div>
+          <div class="kpi-value" style="font-size:18px">В строю</div>
+          <div class="kpi-meta">Корабль готов к циклу добычи</div>
         </div>
       </div>
-      <div class="kpi-grid">
-        <div class="kpi"><div class="kpi-v" id="mine-kpi-energy">100%</div><div class="kpi-l">Энергия</div></div>
-        <div class="kpi"><div class="kpi-v" id="mine-kpi-hull">100%</div><div class="kpi-l">Корпус</div></div>
-        <div class="kpi"><div class="kpi-v" id="mine-kpi-system">🌍</div><div class="kpi-l">Мир</div></div>
+      <div class="banner-line">
+        <span class="pill">⛏️ Тап по планете = ручная добыча</span>
+        <span class="pill">🔬 Исследования ускоряют рост</span>
+        <span class="pill">🌌 Перелёты открывают новые рынки</span>
       </div>
     </div>
-    <div class="bar-row">
-      <div class="bar-hd"><span>XP</span><span id="xp-t">0/100</span></div>
-      <div class="bar-tr"><div class="bar-f bf-xp" id="xp-b" style="width:0%"></div></div>
+    <div class="section-shell">
+      <div class="bar-row">
+        <div class="bar-hd"><span>XP</span><span id="xp-t">0/100</span></div>
+        <div class="bar-tr"><div class="bar-f bf-xp" id="xp-b" style="width:0%"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-hd"><span>⚡ Энергия</span><span id="en-t">100/100</span></div>
+        <div class="bar-tr"><div class="bar-f bf-en" id="en-b" style="width:100%"></div></div>
+      </div>
+      <div class="bar-row" style="margin-bottom:0">
+        <div class="bar-hd"><span>🛡 Корпус</span><span id="hl-t">100/100</span></div>
+        <div class="bar-tr"><div class="bar-f bf-hl" id="hl-b" style="width:100%"></div></div>
+      </div>
     </div>
-    <div class="bar-row">
-      <div class="bar-hd"><span>⚡ Энергия</span><span id="en-t">100/100</span></div>
-      <div class="bar-tr"><div class="bar-f bf-en" id="en-b" style="width:100%"></div></div>
-    </div>
-    <div class="bar-row">
-      <div class="bar-hd"><span>🛡 Корпус</span><span id="hl-t">100/100</span></div>
-      <div class="bar-tr"><div class="bar-f bf-hl" id="hl-b" style="width:100%"></div></div>
-    </div>
-    <!-- Planet -->
     <div class="planet-wrap">
-      <div class="planet-ring" style="position:absolute;width:185px;height:185px;border-radius:50%;border:1px solid rgba(0,180,255,.06)"></div>
-      <div class="planet-ring" style="position:absolute;width:230px;height:230px;border-radius:50%;border:1px solid rgba(0,180,255,.04)"></div>
+      <div class="planet-ring" style="position:absolute;width:185px;height:185px;border-radius:50%;border:1px solid rgba(0,180,255,.08)"></div>
+      <div class="planet-ring" style="position:absolute;width:230px;height:230px;border-radius:50%;border:1px solid rgba(0,180,255,.05)"></div>
+      <div class="orbit-dot sm" style="top:30px;left:18%">☄️</div>
+      <div class="orbit-dot md" style="top:68px;right:14%">🛰️</div>
+      <div class="orbit-dot sm" style="bottom:34px;left:22%">✨</div>
       <div class="planet-btn" id="planet-btn" onclick="onMine(event)">
         <div class="planet-glow" id="planet-glow"></div>
         <span id="planet-em">🪐</span>
       </div>
       <div class="tap-lbl" id="tap-lbl">[ ТАП = +1 · ⚡ +0.18/сек ]</div>
-      <div class="orbit-dots" id="orbit-dots"></div>
     </div>
-    <!-- Helpers -->
     <div class="sh">Помощники</div>
     <div id="helpers-grid" class="g2"></div>
-    <!-- Ship Upgrades -->
     <div class="sh">Апгрейды корабля</div>
     <div id="ship-upg-grid" class="g2"></div>
-    <!-- Quick shortcuts -->
-    <div style="display:flex;gap:6px;padding:0 10px 8px;flex-wrap:wrap">
-      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('tech',null)">🔬 Тех</button>
-      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('skills',null)">🧠 Навыки</button>
-      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('market',null)">🏪 Рынок</button>
-      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('police',null)">👮⛽</button>
-      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('land',null)">🌱 Земля</button>
+    <div class="section-shell" style="padding:10px 12px;margin-top:8px">
+      <div class="hero-kicker" style="margin-bottom:8px">быстрый доступ</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('tech',null)">🔬 Тех</button>
+        <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('skills',null)">🧠 Навыки</button>
+        <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('market',null)">🏪 Рынок</button>
+        <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('police',null)">👮⛽ Полиция</button>
+        <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('land',null)">🌱 Земля</button>
+      </div>
     </div>
   </div>
   <div class="nav">

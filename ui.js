@@ -72,8 +72,9 @@ function renderMine(){
     const owned=G.helpers[h.id]||0;
     const cost=Math.round(h.cost*Math.pow(h.costM,owned));
     const ok=G.cr>=cost;
-    hg.innerHTML+=`<div class="card${ok?' glow-c':''}">
-      <div style="font-size:24px;margin-bottom:4px">${h.icon}</div>
+    hg.innerHTML+=`<div class="card${ok?' glow-c':''}" style="position:relative">
+      <div class="helper-card-accent"></div>
+      <div style="font-size:24px;margin-bottom:6px">${h.icon}</div>
       <div style="font-size:12px;font-weight:700">${h.name}</div>
       <div style="font-size:10px;color:var(--muted2);margin-bottom:6px">+${h.cps}/сек</div>
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -108,8 +109,25 @@ function renderTrade(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   G.cargoMax=calcCargoMax();
   const used=calcCargoUsed();
-  let h=`<div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
-    <div class="bar-tr"><div class="bar-f" style="width:${used/G.cargoMax*100}%;background:linear-gradient(90deg,var(--amber),var(--gold))"></div></div></div>`;
+  const invValue=Object.entries(G.cargo).reduce((s,[gId,amt])=>s+((G.cargoCost?.[gId]||0)*amt),0);
+  let h=`<div class="hero-panel trade-head">
+    <div class="hero-top">
+      <div>
+        <div class="hero-kicker">торговый терминал · ${sys.name}</div>
+        <div class="hero-title">Рынок системы ${sys.emoji}</div>
+        <div class="hero-sub">Покупай ниже рынка, вези в дефицитные зоны и контролируй среднюю цену груза прямо из трюма.</div>
+      </div>
+      <div class="hero-icon">💱</div>
+    </div>
+    <div class="mini-grid">
+      <div class="mini-stat"><div class="l">Кредиты</div><div class="v">${fmt(G.cr)}</div></div>
+      <div class="mini-stat"><div class="l">Трюм</div><div class="v">${used}/${G.cargoMax}</div></div>
+      <div class="mini-stat"><div class="l">Закуплено</div><div class="v">${fmt(invValue)}</div></div>
+      <div class="mini-stat"><div class="l">Спрос</div><div class="v">${sys.goods.length} поз.</div></div>
+    </div>
+  </div>
+  <div class="section-shell"><div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
+    <div class="bar-tr"><div class="bar-f" style="width:${used/G.cargoMax*100}%;background:linear-gradient(90deg,var(--amber),var(--gold))"></div></div></div></div>`;
   const inv=Object.entries(G.cargo).filter(([,v])=>v>0);
   if(inv.length){
     h+=`<div class="sh">Ваш груз</div>`;
@@ -162,7 +180,22 @@ function renderTrade(){
 // ── Quest screen ──
 function renderQuests(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
-  let h=`<div class="sh">Мэры — ${sys.name}</div>`;
+  const readyCount=G.quests.filter(q=>q.accepted&&!q.done&&((q.type==='deliver'&&G.sys===q.need.destSys&&(G.cargo?.[q.need.good]||0)>=q.need.amt)||(q.type==='kill'&&(q.progress||0)>=(q.need?.count||1)&&G.sys===q.sysId)||(q.type==='collect'&&(q.progress||0)>=(q.need?.count||1)&&G.sys===q.sysId))).length;
+  let h=`<div class="hero-panel quest-head">
+    <div class="hero-top">
+      <div>
+        <div class="hero-kicker">контрактный центр · ${sys.name}</div>
+        <div class="hero-title">Задания и поручения</div>
+        <div class="hero-sub">Бери контракты у мэров, отслеживай прогресс и сдавай миссии без лишнего поиска по интерфейсу.</div>
+      </div>
+      <div class="hero-icon">📡</div>
+    </div>
+    <div class="banner-line">
+      <span class="pill">📍 Текущая система: ${sys.name}</span>
+      <span class="pill">✅ Готово к сдаче: ${readyCount}</span>
+      <span class="pill">🗂 Активных: ${G.quests.filter(q=>q.accepted&&!q.done).length}</span>
+    </div>
+  </div><div class="sh">Мэры — ${sys.name}</div>`;
   const localMayors=MAYORS.filter(m=>m.sysId===G.sys);
   if(!localMayors.length){
     h+=`<div class="card" style="color:var(--muted2);font-size:12px">В этой системе нет мэра.</div>`;
@@ -272,7 +305,21 @@ function renderCombatHTML(){
   let h='';
   if(!G.combat){
     const sys=SYSTEMS.find(s=>s.id===G.sys);
-    h+=`<div class="card" style="text-align:center;padding:20px">
+    h+=`<div class="hero-panel more-head">
+      <div class="hero-top">
+        <div>
+          <div class="hero-kicker">боевой контур · ${sys.name}</div>
+          <div class="hero-title">Сектор напряжённости</div>
+          <div class="hero-sub">Оцени пиратскую активность, состояние корабля и вступай в бой только когда готов.</div>
+        </div>
+        <div class="hero-icon">⚔️</div>
+      </div>
+      <div class="banner-line">
+        <span class="pill">☠️ Пираты: ${Math.round(sys.pc*100)}%</span>
+        <span class="pill">🛡 Корпус: ${Math.floor(G.hull/G.maxHull*100)}%</span>
+        <span class="pill">🚀 Ракеты: ${G.missiles}</span>
+      </div>
+    </div><div class="card" style="text-align:center;padding:20px">
       <div style="font-size:48px;margin-bottom:8px">🛸</div>
       <div style="font-size:13px;color:var(--muted2);margin-bottom:12px">
         <b style="color:var(--cyan)">${sys.name}</b> — пиратская активность: ${Math.round(sys.pc*100)}%
