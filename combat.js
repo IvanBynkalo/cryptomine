@@ -4,6 +4,33 @@
 
 let alienInvasion=null;
 
+function normalizeAlienInvasion(inv){
+  if(!inv) return null;
+  const alienId=inv.alienId||inv.race;
+  const al=ALIEN_TYPES.find(a=>a.id===alienId)||ALIEN_TYPES[0];
+  return {
+    ...inv,
+    alienId,
+    race: inv.race||alienId,
+    raceIcon: inv.raceIcon||al.icon,
+    raceName: inv.raceName||al.name
+  };
+}
+
+function syncAlienInvasion(){
+  alienInvasion=normalizeAlienInvasion(G&&G.alienInvasion);
+  if(G) G.alienInvasion=alienInvasion;
+  return alienInvasion;
+}
+
+function setAlienInvasion(inv){
+  alienInvasion=normalizeAlienInvasion(inv);
+  if(G) G.alienInvasion=alienInvasion;
+  return alienInvasion;
+}
+
+syncAlienInvasion();
+
 function startCombat(tier){
   const p={...PIRATES[Math.min(PIRATES.length-1,tier)]};
   G.combat={...p,tier};
@@ -27,24 +54,27 @@ function findEnemy(){
 // checkAlienInvasion -> engine.js
 
 function fightAlien(){
-  if(!alienInvasion){toast('Нет вторжения','bad');return;}
-  const al=ALIEN_TYPES.find(a=>a.id===alienInvasion.alienId)||ALIEN_TYPES[0];
+  const invasion=syncAlienInvasion();
+  if(!invasion){toast('Нет вторжения','bad');return;}
+  const al=ALIEN_TYPES.find(a=>a.id===invasion.alienId)||ALIEN_TYPES[0];
   G.combat={...al,hp:al.maxHp,tier:6+al.threat,isAlien:true};
   G.combatLog=[`⚠️ Боевой контакт: ${al.icon} ${al.name}`,`💬 ${al.desc}`];
   toast(`${al.icon} Бой с ${al.name}!`,'bad');
-  goTo('more',document.querySelector('.nb'));
-  setMoreTab('combat',document.querySelector('.tc-btn'));
+  goTo('more',document.querySelector(".nav .nb[onclick*=\'more\']")||null);
+  setMoreTab('combat',document.querySelector(".sc-more .tc-btn[onclick*=\'combat\']")||null);
   renderMoreTab();
 }
 
 function coopRaid(){
-  if(!alienInvasion){toast('Нет вторжения','bad');return;}
-  const al=ALIEN_TYPES.find(a=>a.id===alienInvasion.alienId)||ALIEN_TYPES[0];
-  const buddies=onlineRangers.filter(r=>!r.isMe).slice(0,2);
+  const invasion=syncAlienInvasion();
+  if(!invasion){toast('Нет вторжения','bad');return;}
+  const al=ALIEN_TYPES.find(a=>a.id===invasion.alienId)||ALIEN_TYPES[0];
+  const buddies=(onlineRangers||[]).filter(r=>!r.isMe).slice(0,2);
   G.combat={...al,hp:Math.round(al.maxHp*.4),maxHp:al.maxHp,tier:6+al.threat,isAlien:true,coop:true};
-  G.combatLog=[`🤝 Кооп с: ${buddies.map(r=>r.name).join(', ')}`,`⚠️ ${al.name} ослаблен союзниками на 60%!`];
+  G.combatLog=[`🤝 Кооп с: ${buddies.length?buddies.map(r=>r.name).join(', '):'дронами поддержки'}`,`⚠️ ${al.name} ослаблен союзниками на 60%!`];
   toast(`🤝 Кооп бой начат!`,'good');
-  setMoreTab('combat',null);renderMoreTab();
+  setMoreTab('combat',document.querySelector(".sc-more .tc-btn[onclick*=\'combat\']")||null);
+  renderMoreTab();
 }
 
 function combatAction(act){
@@ -87,7 +117,7 @@ function combatAction(act){
     G.rp+=e.xp*calcRpMult();G.xp+=e.xp;G.killCount++;
     G.totalKillReward=(G.totalKillReward||0)+loot;
     if(e.isAlien){
-      alienInvasion=null;
+      setAlienInvasion(null);
       G.alienKills=(G.alienKills||0)+1;
       if(e.race){if(!G.alienKillsByRace)G.alienKillsByRace={};G.alienKillsByRace[e.race]=(G.alienKillsByRace[e.race]||0)+1;}
       addPoliceRep(G.gal,20);

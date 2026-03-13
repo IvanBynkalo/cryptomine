@@ -121,7 +121,7 @@ function drawGalaxy(){
     }
 
     // alien invasion marker
-    if(alienInvasion&&alienInvasion.sysId===sys.id){
+    if((G.alienInvasion||alienInvasion)&&(G.alienInvasion||alienInvasion).sysId===sys.id){
       const pulse=.4+.4*Math.sin(Date.now()*.006);
       ctx.strokeStyle=`rgba(255,45,120,${pulse})`; ctx.lineWidth=2.5;
       ctx.beginPath(); ctx.arc(x,y,22,0,Math.PI*2); ctx.stroke();
@@ -213,7 +213,7 @@ function showSysPanel(sys){
     (!isCur?` &nbsp;·&nbsp; 📅 ~${days} дн.`:'')+
     (canRefuelHere?' &nbsp;<span style="color:var(--cyan)">⛽</span>':'')+
     `<br><span style="font-size:13px;letter-spacing:2px" title="Планеты системы">${planets.join(' ')}</span>`+
-    (alienInvasion?.sysId===sys.id?`<br><span style="color:#ff2d78">⚠️ ВТОРЖЕНИЕ ПРИШЕЛЬЦЕВ!</span>`:'')+
+    ((G.alienInvasion||alienInvasion)?.sysId===sys.id?`<br><span style="color:#ff2d78">⚠️ ВТОРЖЕНИЕ ПРИШЕЛЬЦЕВ!</span>`:'')+
     (sys.goods?`<br><span style="font-size:9px;color:var(--muted2)">Товары: ${sys.goods.map(g=>GOODS[g]?.name||g).join(', ')}</span>`:'');
   const btn=document.getElementById('fly-btn');
   if(isCur){btn.textContent='✅ Вы здесь';btn.disabled=true;}

@@ -252,7 +252,8 @@ function checkAlienInvasion(){
   SYSTEMS.filter(s=>s.type==='danger'||s.gal==='gamma'||s.gal==='chaos').forEach(sys=>{
     if(Math.random()<0.04&&!G.alienInvasion){
       const race=ALIEN_TYPES[Math.floor(Math.random()*3)];
-      G.alienInvasion={sysId:sys.id,race:race.id,raceIcon:race.icon,raceName:race.name,spawnDay:G.day};
+      if(typeof setAlienInvasion==='function') setAlienInvasion({sysId:sys.id,alienId:race.id,race:race.id,raceIcon:race.icon,raceName:race.name,spawnDay:G.day});
+      else G.alienInvasion={sysId:sys.id,alienId:race.id,race:race.id,raceIcon:race.icon,raceName:race.name,spawnDay:G.day};
       toast(`👾 Вторжение! ${race.icon}${race.name} в ${sys.name}!`,'bad');
     }
   });

@@ -231,14 +231,15 @@ async function renderOnlineRangers(){
       </div>
       <div style="text-align:right">
         <div style="font-size:11px;color:var(--purple)">Ур.${p.lvl}</div>
-        ${!isMe&&alienInvasion?`<button class="btn btn-sm btn-g" onclick="coopRaid()" style="margin-top:2px">Коопереция</button>`:''}
+        ${!isMe&&(G.alienInvasion||alienInvasion)?`<button class="btn btn-sm btn-g" onclick="coopRaid()" style="margin-top:2px">Коопереция</button>`:''}
       </div>
     </div>`;
   });
 
-  if(alienInvasion){
-    const al=ALIEN_TYPES.find(a=>a.id===alienInvasion.alienId);
-    const alSys=SYSTEMS.find(s=>s.id===alienInvasion.sysId);
+  const invasion=(G.alienInvasion||alienInvasion);
+  if(invasion){
+    const al=ALIEN_TYPES.find(a=>a.id===invasion.alienId||invasion.race);
+    const alSys=SYSTEMS.find(s=>s.id===invasion.sysId);
     h+=`<div style="margin-top:10px;background:rgba(255,45,120,.08);border:1px solid rgba(255,45,120,.3);
       border-radius:10px;padding:14px">
       <div style="color:#ff2d78;font-weight:700;margin-bottom:6px">⚠️ АКТИВНОЕ ВТОРЖЕНИЕ</div>

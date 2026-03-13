@@ -19,6 +19,7 @@ function freshState(){
     quests:[],completedQ:0,
     combat:null,combatLog:[],
     killCount:0,totalKillReward:0,alienKills:0,alienKillsByRace:{},
+    alienInvasion:null,
     prices:{},priceHistory:{},
     debrisActive:[],botActions:[],
     policeRep:{},capturedSystems:[],
@@ -59,6 +60,7 @@ if(!G.month)      G.month=1;
 if(!G.year)       G.year=2450;
 if(!G.cargoCost)  G.cargoCost={};
 if(!G.landPlots)  G.landPlots={};
+if(G.alienInvasion===undefined) G.alienInvasion=null;
 
 // offline earnings
 (()=>{

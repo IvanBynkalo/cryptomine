@@ -259,7 +259,7 @@ function renderCombatHTML(){
         <b style="color:var(--cyan)">${sys.name}</b> — пиратская активность: ${Math.round(sys.pc*100)}%
       </div>
       <button class="btn btn-r btn-full" onclick="findEnemy()">🔍 Искать противника</button>
-      ${alienInvasion?`<button class="btn btn-full" style="background:rgba(255,45,120,.15);border-color:#ff2d78;color:#ff2d78;margin-top:8px" onclick="fightAlien()">👽 Атаковать вторженцев!</button>`:''}
+      ${(G.alienInvasion||alienInvasion)?`<button class="btn btn-full" style="background:rgba(255,45,120,.15);border-color:#ff2d78;color:#ff2d78;margin-top:8px" onclick="fightAlien()">👽 Атаковать вторженцев!</button>`:''}
     </div>`;
     h+=`<div class="sh">Статистика</div>
     <div class="g2">
