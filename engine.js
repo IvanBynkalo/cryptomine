@@ -286,11 +286,13 @@ function tick(){
   if(hasTech('regen'))   G.hull=Math.min(G.maxHull,G.hull+dt*5);
   if(hasTech('fortress'))G.hull=Math.min(G.maxHull,G.hull+dt*3);
   advanceTime();lvlCheck();
+  if(!_uiReady) return;
   if(curScreen==='mine') renderMine();
   updateHUD();
 }
 setInterval(tick,250);
 setInterval(()=>{
+  if(!_uiReady) return;
   if(curScreen==='trade') renderTrade();
   if(curScreen==='more')  renderMoreTab();
   if(curScreen==='quest') {checkQuestProgress();renderQuests();}

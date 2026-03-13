@@ -2,13 +2,7 @@
 //  ui.js — render, HUD, navigation
 // ═══════════════════════════════════════
 
-// ── Toast ──
-let _tt;
-function toast(msg,type=''){
-  const t=document.getElementById('toast');
-  t.className='toast show '+(type||'');t.textContent=msg;
-  clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),3000);
-}
+// toast, haptic, hapticN, fmt → globals.js
 
 // ── HUD ──
 function updateHUD(){
@@ -34,8 +28,7 @@ function updateHUD(){
   updateQuestBadge();
 }
 
-// ── Screen nav ──
-let curScreen='mine';
+// curScreen declared in globals.js
 function goTo(name,btn){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('sc-'+name).classList.add('active');
@@ -48,10 +41,7 @@ function goTo(name,btn){
   updateHUD();
 }
 
-// ── Haptics ──
-const tg=window.Telegram?.WebApp;
-function haptic(t='light'){if(tg?.HapticFeedback)tg.HapticFeedback.impactOccurred(t);}
-function hapticN(t='success'){if(tg?.HapticFeedback)tg.HapticFeedback.notificationOccurred(t);}
+// haptic/hapticN/tg → globals.js
 
 // ── Mine screen ──
 function renderMine(){
@@ -655,5 +645,6 @@ async function submitName(){
 
 // ── Startup ──
 initPrices();
+_uiReady = true;
 if(!G.playerName) showNameScreen();
-else {updateHUD();renderMine();refreshQuests();}
+else { updateHUD(); renderMine(); refreshQuests(); }

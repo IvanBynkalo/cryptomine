@@ -56,7 +56,7 @@ G = loadG()||freshState();
   if(dt>10&&cps>0){
     const earn=Math.floor(dt*cps);
     G.cr+=earn; G.totalCr+=earn;
-    setTimeout(()=>toast(`⏰ Оффлайн +${fmt(earn)} кр`,'good'),800);
+    setTimeout(()=>typeof toast==='function'&&toast(`⏰ Оффлайн +${fmt(earn)} кр`,'good'),1500);
   }
 })();
 
@@ -136,10 +136,4 @@ function getRankByLvl(lvl){
 }
 function xpForLvl(l){ return Math.floor(100*Math.pow(1.85,l-1)); }
 
-function fmt(n){
-  n=Math.floor(n||0);
-  if(n>=1e9) return (n/1e9).toFixed(1)+'B';
-  if(n>=1e6) return (n/1e6).toFixed(1)+'M';
-  if(n>=1e3) return (n/1e3).toFixed(1)+'K';
-  return n.toString();
-}
+// fmt → globals.js
