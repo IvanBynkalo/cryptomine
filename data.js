@@ -18,8 +18,6 @@ const GALAXIES=[
   {id:'beta', name:'Бета', label:'💫 Бета', danger:2},
   {id:'gamma',name:'Гамма',label:'⭐ Гамма',danger:3},
   {id:'chaos',name:'Хаос', label:'🔴 Хаос', danger:4},
-  {id:'delta',name:'Дельта',label:'🧊 Дельта',danger:5},
-  {id:'omega',name:'Омега',label:'🌀 Омега',danger:6},
 ];
 
 const SYSTEMS=[
@@ -46,15 +44,6 @@ const SYSTEMS=[
   {id:'rift',   gal:'chaos',name:'Разлом',  x:.25,y:.3, type:'danger', emoji:'🌑',fuelCost:65,pc:.75,goods:['weapons','ore','fuel'],      planets:['🌑','⚫','🖤']},
   {id:'vortex', gal:'chaos',name:'Вортекс', x:.75,y:.65,type:'danger', emoji:'🌪️',fuelCost:70,pc:.9, goods:['weapons','minerals','tech'], planets:['🌪️','💀','⚫']},
   {id:'sanctum',gal:'chaos',name:'Санктум', x:.4, y:.75,type:'trade',  emoji:'🏯',fuelCost:80,pc:.4, goods:['tech','medicine','food'],    planets:['🏯','💜','🔵']},
-
-  // DELTA
-  {id:'frost', gal:'delta',name:'Фрост',   x:.18,y:.22,type:'science', emoji:'🧊',fuelCost:86,pc:.35,goods:['medicine','tech','fuel'], planets:['🧊','⚪','🔵']},
-  {id:'helix', gal:'delta',name:'Хеликс',   x:.52,y:.48,type:'trade',   emoji:'🧬',fuelCost:92,pc:.22,goods:['tech','medicine','food'], planets:['🧬','💠','🌕']},
-  {id:'bastion',gal:'delta',name:'Бастион',x:.8, y:.72,type:'danger',  emoji:'🛡️',fuelCost:98,pc:.72,goods:['weapons','minerals','fuel'], planets:['🛡️','⚫','💀']},
-  // OMEGA
-  {id:'eclipse',gal:'omega',name:'Эклипс', x:.25,y:.68,type:'danger',  emoji:'🌘',fuelCost:108,pc:.88,goods:['weapons','tech','minerals'], planets:['🌘','⚫','🖤']},
-  {id:'oracle', gal:'omega',name:'Оракул', x:.58,y:.25,type:'science', emoji:'🔮',fuelCost:112,pc:.4,goods:['tech','medicine','xeno'], planets:['🔮','💜','🌕']},
-  {id:'citadel',gal:'omega',name:'Цитадель',x:.84,y:.5,type:'trade',   emoji:'🏛️',fuelCost:118,pc:.3,goods:['tech','weapons','medicine'], planets:['🏛️','💠','🔵']},
 ];
 
 const GOODS={
@@ -65,7 +54,6 @@ const GOODS={
   fuel:    {name:'Топливо',        icon:'⚡',base:80},
   medicine:{name:'Медикаменты',    icon:'💊',base:150},
   weapons: {name:'Оружие',         icon:'🔫',base:300},
-  xeno:    {name:'Ксенокристаллы',  icon:'🧪',base:900},
 };
 
 const SHIP_UPGRADES=[
@@ -123,33 +111,6 @@ const SKILLS_DEF=[
   {id:'intellect', icon:'🧠',name:'Интеллект',     desc:'Больше науч.очков',   perLvl:'+8% науки'},
   {id:'luck',      icon:'🍀',name:'Удача',         desc:'Двойная добыча',      perLvl:'+2% шанс'},
   {id:'engineering',icon:'🔧',name:'Инженерия',   desc:'Рег.энергии и ремонт',perLvl:'+5%'},
-];
-
-
-const RANGER_CLASSES=[
-  {id:'freelancer',icon:'🛰️',name:'Свободный рейнджер',focus:'Универсал',
-   desc:'Стабильный рост без перекоса. +5% ко всем базовым наградам.',
-   bonuses:{quest:0.05,trade:0.03,combat:0.03,science:0.03,travel:0.03}},
-  {id:'trader',icon:'💰',name:'Торговец',focus:'Экономика',
-   desc:'Лучше торгует и медленнее скатывается в долг.',
-   bonuses:{trade:0.12,quest:0.05,debt:0.15}},
-  {id:'hunter',icon:'⚔️',name:'Охотник',focus:'Бой',
-   desc:'Сильнее растёт от боёв, но требует чести и дисциплины.',
-   bonuses:{combat:0.12,alien:0.12,power:0.08}},
-  {id:'explorer',icon:'🧭',name:'Исследователь',focus:'Перелёты и наука',
-   desc:'Быстрее набирает силу за открытия, перелёты и технологии.',
-   bonuses:{science:0.12,travel:0.12,influence:0.08}},
-  {id:'commander',icon:'👑',name:'Командор',focus:'Влияние',
-   desc:'Сильнее работает через влияние, задания и контроль секторов.',
-   bonuses:{quest:0.1,influence:0.12,police:0.08}}
-];
-
-const LICENSE_TIERS=[
-  {tier:1,name:'Лицензия патруля', power:0, honor:-50, completedQ:0},
-  {tier:2,name:'Лицензия рейдера', power:80, honor:0, completedQ:2},
-  {tier:3,name:'Лицензия ветерана', power:180, honor:10, completedQ:6},
-  {tier:4,name:'Лицензия командира', power:320, honor:20, completedQ:12},
-  {tier:5,name:'Лицензия призрака', power:520, honor:35, completedQ:20},
 ];
 
 const EQUIPMENT=[
@@ -218,8 +179,11 @@ const ALIEN_TYPES=[
   {id:'psi_phantom', race:'psi',    name:'Пси-Фантом',      icon:'👻',hp:150, maxHp:150, dmg:30,reward:1000, xp:80, threat:1,special:'psi',   color:'#a855f7',desc:'Пси-атака игнорирует 50% брони'},
   {id:'psi_mind',    race:'psi',    name:'Разум-Пожиратель',icon:'🧿',hp:400, maxHp:400, dmg:55,reward:3000, xp:220,threat:3,special:'psi',   color:'#a855f7',desc:'Контроль разума каждые 3 хода'},
   {id:'psi_hive',    race:'psi',    name:'Великий Улей',    icon:'🌀',hp:3500,maxHp:3500,dmg:120,reward:18000,xp:1200,threat:4,special:'psi', color:'#a855f7',desc:'Коллективный разум — непредсказуем'},
-  // ── Материнский корабль
-  {id:'mothership',  race:'zorg',   name:'Материнский корабль',icon:'🌐',hp:5000,maxHp:5000,dmg:150,reward:25000,xp:1500,threat:4,special:'split',color:'#ff2d78',desc:'Финальный босс'},
+  // ── Боссы вторжений
+  {id:'zorg_behemoth', race:'zorg', name:'Биобегемот Зorg', icon:'🧬', hp:6200, maxHp:6200, dmg:165, reward:32000, xp:1900, threat:5, special:'split', color:'#36ff98', desc:'Финальный босс роя. Порождает новые споры и рвётся в ближний бой'},
+  {id:'tech_dreadnought', race:'technoid', name:'Дредноут Омега-МК', icon:'🛡️', hp:7000, maxHp:7000, dmg:180, reward:36000, xp:2200, threat:5, special:'shield', color:'#3ad7ff', desc:'Финальный босс техноидов. Перестраивает щиты под ваш урон'},
+  {id:'psi_overmind', race:'psi', name:'Пси-Овермайнд', icon:'🔮', hp:7600, maxHp:7600, dmg:190, reward:39000, xp:2400, threat:5, special:'psi', color:'#c084fc', desc:'Финальный босс коллективного разума. Давит психикой и игнорирует броню'},
+  {id:'mothership',  race:'zorg',   name:'Материнский корабль',icon:'🌐',hp:5000,maxHp:5000,dmg:150,reward:25000,xp:1500,threat:4,special:'split',color:'#ff2d78',desc:'Старый босс вторжений'},
 ];
 
 const POLICE_FACTIONS={
@@ -227,8 +191,6 @@ const POLICE_FACTIONS={
   beta: {name:'Имперский Патруль',   icon:'⚔️',color:'#ffd700',fine:1200, power:60},
   gamma:{name:'Орден Гаммы',         icon:'🔱',color:'#a855f7',fine:3000, power:100},
   chaos:{name:'Тёмная Инквизиция',   icon:'💀',color:'#ff3a3a',fine:8000, power:180},
-  delta:{name:'Ледяной Корпус',      icon:'🧊',color:'#7dd3fc',fine:14000,power:260},
-  omega:{name:'Совет Омеги',         icon:'🌀',color:'#8b5cf6',fine:24000,power:360},
 };
 
 const QUEST_TYPES=[

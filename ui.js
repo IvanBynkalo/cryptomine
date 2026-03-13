@@ -11,15 +11,12 @@ function updateHUD(){
   ['h-cred','g-cred','t-cred','q-cred','mo-cred'].forEach(id=>{
     const el=document.getElementById(id);if(el) el.textContent=fmt(G.cr);
   });
-  const hd=document.getElementById('m-debt'); if(hd) hd.textContent=(G.debt||0)>0?`Долг: ${fmt(G.debt)} кр · лимит ${fmt(getDebtLimit())}`:`Долгов нет`;
   ['h-fuel','g-fuel'].forEach(id=>{const el=document.getElementById(id);if(el) el.textContent=Math.floor(G.fuel);});
   ['g-loc','t-loc','q-loc'].forEach(id=>{const el=document.getElementById(id);if(el) el.textContent=sysName;});
   const hh=document.getElementById('h-hull');
   if(hh){hh.textContent=Math.floor(G.hull/G.maxHull*100)+'%';}
   const hr=document.getElementById('h-rank');
   if(hr){hr.textContent=rank.name;hr.style.color=rank.color;}
-  const hpw=document.getElementById('h-power'); if(hpw) hpw.textContent=calcRangerPower();
-  const hcl=document.getElementById('h-class'); if(hcl) hcl.textContent=`${currentClassDef().icon} ${currentClassDef().name}`;
   G.cargoMax=calcCargoMax();
   const tc=document.getElementById('t-cargo');if(tc) tc.textContent=`${calcCargoUsed()}/${G.cargoMax}`;
   const ts=timeStr();
@@ -53,8 +50,6 @@ function renderMine(){
   const cp=calcClickPower(),cps=calcCPS(),need=xpForLvl(G.lvl);
   document.getElementById('m-cred').textContent=fmt(G.cr);
   document.getElementById('m-cps').textContent=cps>0?`+${fmt(cps)}/сек`:'нет авто-добычи';
-  const debtEl=document.getElementById('m-debt');
-  if(debtEl) debtEl.textContent=(G.debt||0)>0?`Долг: ${fmt(G.debt)} кр · лимит ${fmt(getDebtLimit())}`:`Долгов нет`;
   document.getElementById('m-lvl').textContent=G.lvl;
   document.getElementById('m-sp').textContent=`+${calcRpMult().toFixed(1)}× НО/сек`;
   document.getElementById('xp-t').textContent=`${Math.floor(G.xp)}/${need}`;
@@ -66,10 +61,6 @@ function renderMine(){
   document.getElementById('planet-em').textContent=sys.emoji;
   document.getElementById('tap-lbl').textContent=
     `[ ТАП = +${fmt(cp)} · ⚡ +${(0.18+gSkill('engineering')*0.02).toFixed(2)}/сек ]`;
-  const cls=currentClassDef();
-  const clsLevel=classLevel(G.rangerClass);
-  const clsWrap=document.getElementById('class-summary');
-  if(clsWrap){ clsWrap.innerHTML=`<div class="card glow-p" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><div style="font-size:9px;letter-spacing:1px;color:var(--muted2);text-transform:uppercase">Путь рейнджера</div><div style="font-size:14px;font-weight:700">${cls.icon} ${cls.name}</div><div style="font-size:10px;color:var(--muted2);margin-top:3px">Ур.${clsLevel} · Сила ${calcRangerPower()} · Честь ${G.honor||0} · Влияние ${getInfluence(G.gal)}</div></div><button class="btn btn-sm btn-p" onclick="goTo('more',null);setMoreTab('rangers',null)">Путь</button></div></div>`; }
   const glows={home:'rgba(0,255,136,.4)',mining:'rgba(255,215,0,.4)',trade:'rgba(0,200,255,.4)',
     danger:'rgba(255,58,58,.4)',science:'rgba(168,85,247,.4)',paradise:'rgba(0,200,100,.4)'};
   document.getElementById('planet-glow').style.background=
@@ -81,8 +72,9 @@ function renderMine(){
     const owned=G.helpers[h.id]||0;
     const cost=Math.round(h.cost*Math.pow(h.costM,owned));
     const ok=G.cr>=cost;
-    hg.innerHTML+=`<div class="card${ok?' glow-c':''}">
-      <div style="font-size:24px;margin-bottom:4px">${h.icon}</div>
+    hg.innerHTML+=`<div class="card${ok?' glow-c':''}" style="position:relative">
+      <div class="helper-card-accent"></div>
+      <div style="font-size:24px;margin-bottom:6px">${h.icon}</div>
       <div style="font-size:12px;font-weight:700">${h.name}</div>
       <div style="font-size:10px;color:var(--muted2);margin-bottom:6px">+${h.cps}/сек</div>
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -117,8 +109,25 @@ function renderTrade(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   G.cargoMax=calcCargoMax();
   const used=calcCargoUsed();
-  let h=`<div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
-    <div class="bar-tr"><div class="bar-f" style="width:${used/G.cargoMax*100}%;background:linear-gradient(90deg,var(--amber),var(--gold))"></div></div></div>`;
+  const invValue=Object.entries(G.cargo).reduce((s,[gId,amt])=>s+((G.cargoCost?.[gId]||0)*amt),0);
+  let h=`<div class="hero-panel trade-head">
+    <div class="hero-top">
+      <div>
+        <div class="hero-kicker">торговый терминал · ${sys.name}</div>
+        <div class="hero-title">Рынок системы ${sys.emoji}</div>
+        <div class="hero-sub">Покупай ниже рынка, вези в дефицитные зоны и контролируй среднюю цену груза прямо из трюма.</div>
+      </div>
+      <div class="hero-icon">💱</div>
+    </div>
+    <div class="mini-grid">
+      <div class="mini-stat"><div class="l">Кредиты</div><div class="v">${fmt(G.cr)}</div></div>
+      <div class="mini-stat"><div class="l">Трюм</div><div class="v">${used}/${G.cargoMax}</div></div>
+      <div class="mini-stat"><div class="l">Закуплено</div><div class="v">${fmt(invValue)}</div></div>
+      <div class="mini-stat"><div class="l">Спрос</div><div class="v">${sys.goods.length} поз.</div></div>
+    </div>
+  </div>
+  <div class="section-shell"><div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
+    <div class="bar-tr"><div class="bar-f" style="width:${used/G.cargoMax*100}%;background:linear-gradient(90deg,var(--amber),var(--gold))"></div></div></div></div>`;
   const inv=Object.entries(G.cargo).filter(([,v])=>v>0);
   if(inv.length){
     h+=`<div class="sh">Ваш груз</div>`;
@@ -171,7 +180,22 @@ function renderTrade(){
 // ── Quest screen ──
 function renderQuests(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
-  let h=`<div class="sh">Мэры — ${sys.name}</div>`;
+  const readyCount=G.quests.filter(q=>q.accepted&&!q.done&&((q.type==='deliver'&&G.sys===q.need.destSys&&(G.cargo?.[q.need.good]||0)>=q.need.amt)||(q.type==='kill'&&(q.progress||0)>=(q.need?.count||1)&&G.sys===q.sysId)||(q.type==='collect'&&(q.progress||0)>=(q.need?.count||1)&&G.sys===q.sysId))).length;
+  let h=`<div class="hero-panel quest-head">
+    <div class="hero-top">
+      <div>
+        <div class="hero-kicker">контрактный центр · ${sys.name}</div>
+        <div class="hero-title">Задания и поручения</div>
+        <div class="hero-sub">Бери контракты у мэров, отслеживай прогресс и сдавай миссии без лишнего поиска по интерфейсу.</div>
+      </div>
+      <div class="hero-icon">📡</div>
+    </div>
+    <div class="banner-line">
+      <span class="pill">📍 Текущая система: ${sys.name}</span>
+      <span class="pill">✅ Готово к сдаче: ${readyCount}</span>
+      <span class="pill">🗂 Активных: ${G.quests.filter(q=>q.accepted&&!q.done).length}</span>
+    </div>
+  </div><div class="sh">Мэры — ${sys.name}</div>`;
   const localMayors=MAYORS.filter(m=>m.sysId===G.sys);
   if(!localMayors.length){
     h+=`<div class="card" style="color:var(--muted2);font-size:12px">В этой системе нет мэра.</div>`;
@@ -188,37 +212,47 @@ function renderQuests(){
   h+=`<div class="sh">Задания в этой системе (${active.length})</div>`;
   if(!active.length) h+=`<div class="card" style="color:var(--muted2);font-size:12px">Нет заданий. Летите в другие системы или подождите нового дня.</div>`;
   active.forEach(q=>{
-    const prog=q.progress||0,total=q.need?.amt||q.need?.count||1;
+    const total=q.need?.amt||q.need?.count||1;
+    const prog=q.type==='deliver'?(G.sys===q.need.destSys?Math.min(total,G.cargo?.[q.need.good]||0):(q.progress||0)):(q.progress||0);
+    const canClaimDeliver=q.accepted&&q.type==='deliver'&&G.sys===q.need.destSys&&(G.cargo?.[q.need.good]||0)>=q.need.amt;
+    const canClaimKill=q.accepted&&q.type==='kill'&&prog>=total;
+    const canClaimCollect=q.accepted&&q.type==='collect'&&prog>=total;
     h+=`<div class="quest-card${q.accepted?' active':''}">
       <div class="qc-type" style="color:${q.color}">${q.icon} ${q.type==='deliver'?'ДОСТАВКА':q.type==='kill'?'УНИЧТОЖЕНИЕ':'СБОР'}</div>
       <div class="qc-name">${q.title}</div>
       <div class="quest-giver">${q.giverIcon} ${q.giver}</div>
       <div class="qc-desc">${q.desc}</div>
-      ${q.accepted?`<div class="qc-prog">Прогресс: ${prog}/${total}</div>
+      ${q.accepted?`<div class="qc-prog">Прогресс: ${prog}/${total}${q.type==='deliver'&&G.sys===q.need.destSys?` · В трюме: ${G.cargo?.[q.need.good]||0}`:''}</div>
         <div class="bar-tr" style="margin-bottom:8px"><div class="bar-f bf-xp" style="width:${Math.min(100,prog/total*100)}%"></div></div>`:''}
       <div class="qc-reward">🏆 ${fmt(q.reward)} кр · +${q.xp} XP · +${q.rp} НО</div>
-      <div style="margin-top:8px;display:flex;gap:6px">
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
         ${!q.accepted?`<button class="btn btn-sm btn-c" onclick="acceptQuest('${q.id}')">Принять</button>`:''}
-        ${q.accepted&&q.type==='kill'?`<button class="btn btn-sm btn-g" onclick="claimKillQuest('${q.id}')" ${prog>=total?'':'disabled'}>Сдать</button>`:''}
-        ${q.accepted&&q.type==='collect'?`<button class="btn btn-sm btn-g" onclick="claimCollectQuest('${q.id}')" ${prog>=total?'':'disabled'}>Сдать</button>`:''}
-        ${q.accepted&&q.type==='deliver'?`<button class="btn btn-sm btn-g" onclick="claimDeliverQuest('${q.id}')" ${(G.sys===q.need.destSys&&(G.cargo[q.need.good]||0)>=q.need.amt)?'':'disabled'}>Сдать груз</button>`:''}
-        ${q.expires?`<span style="font-size:9px;color:var(--muted2)">Сдача: ${q.type==='deliver'?(SYSTEMS.find(s=>s.id===q.need.destSys)?.name||'?'):(SYSTEMS.find(s=>s.id===q.sysId)?.name||'?')} · до ${q.expires} дня</span>`:''}
+        ${canClaimDeliver?`<button class="btn btn-sm btn-g" onclick="claimDeliverQuest('${q.id}')">Сдать груз</button>`:''}
+        ${q.accepted&&q.type==='deliver'&&!canClaimDeliver&&G.sys===q.need.destSys?`<span style="font-size:10px;color:var(--muted2)">Нужно ${q.need.amt}× ${GOODS[q.need.good].name} в трюме</span>`:''}
+        ${q.accepted&&q.type==='deliver'&&G.sys!==q.need.destSys?`<span style="font-size:10px;color:var(--muted2)">Пункт назначения: ${SYSTEMS.find(s=>s.id===q.need.destSys)?.name||q.need.destSys}</span>`:''}
+        ${canClaimKill?`<button class="btn btn-sm btn-g" onclick="claimKillQuest('${q.id}')">Сдать</button>`:''}
+        ${canClaimCollect?`<button class="btn btn-sm btn-g" onclick="claimCollectQuest('${q.id}')">Сдать</button>`:''}
+        ${q.expires?`<span style="font-size:9px;color:var(--muted2)">Истекает: День ${q.expires}</span>`:''}
       </div></div>`;
   });
   if(elsewhere.length){
-    h+=`<div class="sh">Активные задания вне системы выдачи</div>`;
+    h+=`<div class="sh">Активные задания</div>`;
     elsewhere.forEach(q=>{
-      const prog=q.progress||0,total=q.need?.amt||q.need?.count||1;
-      const canDeliver=q.type==='deliver'&&G.sys===q.need.destSys&&(G.cargo[q.need.good]||0)>=q.need.amt;
+      const total=q.need?.amt||q.need?.count||1;
+      const prog=q.type==='deliver'?(G.sys===q.need.destSys?Math.min(total,G.cargo?.[q.need.good]||0):(q.progress||0)):(q.progress||0);
+      const canClaimDeliver=q.accepted&&q.type==='deliver'&&G.sys===q.need.destSys&&(G.cargo?.[q.need.good]||0)>=q.need.amt;
+      const canClaimKill=q.accepted&&q.type==='kill'&&prog>=total&&G.sys===q.sysId;
+      const canClaimCollect=q.accepted&&q.type==='collect'&&prog>=total&&G.sys===q.sysId;
       h+=`<div class="quest-card active">
         <div class="qc-type" style="color:${q.color}">${q.icon} ${q.title}</div>
         <div class="qc-desc">${q.desc}</div>
-        <div class="qc-prog">${prog}/${total}</div>
-        <div style="margin-top:6px;font-size:9px;color:var(--muted2)">Сдача: ${q.type==='deliver'?(SYSTEMS.find(s=>s.id===q.need.destSys)?.name||'?'):(SYSTEMS.find(s=>s.id===q.sysId)?.name||'?')}</div>
+        <div class="qc-prog">${prog}/${total} · Выдано в: ${SYSTEMS.find(s=>s.id===q.sysId)?.name||q.sysId}</div>
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-          ${q.type==='deliver'?`<button class="btn btn-sm btn-g" onclick="claimDeliverQuest('${q.id}')" ${canDeliver?'':'disabled'}>Сдать груз</button>`:''}
-          ${q.type==='collect'?`<button class="btn btn-sm btn-g" onclick="claimCollectQuest('${q.id}')" ${prog>=total&&G.sys===q.sysId?'':'disabled'}>Сдать</button>`:''}
-          ${q.type==='kill'?`<button class="btn btn-sm btn-g" onclick="claimKillQuest('${q.id}')" ${prog>=total&&G.sys===q.sysId?'':'disabled'}>Сдать</button>`:''}
+          ${canClaimDeliver?`<button class="btn btn-sm btn-g" onclick="claimDeliverQuest('${q.id}')">Сдать груз</button>`:''}
+          ${canClaimKill?`<button class="btn btn-sm btn-g" onclick="claimKillQuest('${q.id}')">Сдать</button>`:''}
+          ${canClaimCollect?`<button class="btn btn-sm btn-g" onclick="claimCollectQuest('${q.id}')">Сдать</button>`:''}
+          ${q.type==='deliver'&&G.sys===q.need.destSys&&!canClaimDeliver?`<span style="font-size:10px;color:var(--muted2)">Нужно ${q.need.amt}× ${GOODS[q.need.good].name} в трюме</span>`:''}
+          ${q.type!=='deliver'&&prog>=total&&G.sys!==q.sysId?`<span style="font-size:10px;color:var(--muted2)">Вернитесь в систему выдачи для сдачи</span>`:''}
         </div></div>`;
     });
   }
@@ -271,34 +305,27 @@ function renderCombatHTML(){
   let h='';
   if(!G.combat){
     const sys=SYSTEMS.find(s=>s.id===G.sys);
-    h+=`<div class="card" style="text-align:center;padding:20px">
+    h+=`<div class="hero-panel more-head">
+      <div class="hero-top">
+        <div>
+          <div class="hero-kicker">боевой контур · ${sys.name}</div>
+          <div class="hero-title">Сектор напряжённости</div>
+          <div class="hero-sub">Оцени пиратскую активность, состояние корабля и вступай в бой только когда готов.</div>
+        </div>
+        <div class="hero-icon">⚔️</div>
+      </div>
+      <div class="banner-line">
+        <span class="pill">☠️ Пираты: ${Math.round(sys.pc*100)}%</span>
+        <span class="pill">🛡 Корпус: ${Math.floor(G.hull/G.maxHull*100)}%</span>
+        <span class="pill">🚀 Ракеты: ${G.missiles}</span>
+      </div>
+    </div><div class="card" style="text-align:center;padding:20px">
       <div style="font-size:48px;margin-bottom:8px">🛸</div>
       <div style="font-size:13px;color:var(--muted2);margin-bottom:12px">
         <b style="color:var(--cyan)">${sys.name}</b> — пиратская активность: ${Math.round(sys.pc*100)}%
       </div>
       <button class="btn btn-r btn-full" onclick="findEnemy()">🔍 Искать противника</button>
-      ${currentAlienInvasion()?(()=>{
-        const inv=currentAlienInvasion();
-        const wave=(inv.alienIds||[]).map(id=>ALIEN_TYPES.find(a=>a.id===id)).filter(Boolean);
-        const rows=wave.map((a,i)=>`<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;border-color:${a.color||'#ff2d78'}33;background:rgba(255,255,255,.03)">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="font-size:24px;filter:drop-shadow(0 0 8px ${a.color||'#ff2d78'}88)">${a.icon}</div>
-            <div>
-              <div style="font-size:12px;font-weight:700;color:${a.color||'#ff2d78'}">${a.name}</div>
-              <div style="font-size:10px;color:var(--muted2)">Угроза ${a.threat||1} · ХП ${a.maxHp} · Награда ${fmt(a.reward)}</div>
-            </div>
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-            <button class="btn btn-sm" style="background:rgba(255,45,120,.15);border-color:#ff2d78;color:#ff2d78" onclick="fightAlien('${a.id}')">Бой</button>
-            ${i===0?`<button class="btn btn-sm btn-c" onclick="coopRaid('${a.id}')">Кооп</button>`:''}
-          </div>
-        </div>`).join('');
-        return `<div class="card" style="margin-top:8px;border-color:#ff2d7833;background:linear-gradient(180deg,rgba(255,45,120,.14),rgba(9,12,24,.65))">
-          <div style="font-size:12px;font-weight:800;color:#ff73ac;margin-bottom:4px">⚠️ Вторжение в ${SYSTEMS.find(s=>s.id===inv.sysId)?.name||'неизвестной системе'}</div>
-          <div style="font-size:10px;color:var(--muted2);margin-bottom:6px">Выберите цель. В волне: ${(inv.alienIds||[]).length} врагов</div>
-          ${rows}
-        </div>`;
-      })():''}
+      ${currentAlienInvasion()?(()=>{ const inv=currentAlienInvasion(); const wave=(inv.alienIds||[]).map(id=>ALIEN_TYPES.find(a=>a.id===id)).filter(Boolean); const scouts=wave.filter(a=>(a.threat||1)<=1); const elites=wave.filter(a=>(a.threat||1)===2); const commanders=wave.filter(a=>(a.threat||1)>=3); const boss=ALIEN_TYPES.find(a=>a.id===inv.bossId); const progress=Math.round(((inv.progress||0)/Math.max(1,inv.totalTargets||1))*100); const grp=(arr,title,col)=>arr.length?`<div style="margin-top:8px"><div style="font-size:10px;font-weight:800;color:${col};margin-bottom:4px">${title} · ${arr.length}</div>${arr.map((a,i)=>`<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px;border-color:${a.color||'#ff2d78'}33;background:rgba(255,255,255,.03)"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px;filter:drop-shadow(0 0 8px ${a.color||'#ff2d78'}88)">${a.icon}</div><div><div style="font-size:12px;font-weight:700;color:${a.color||'#ff2d78'}">${a.name}</div><div style="font-size:10px;color:var(--muted2)">Угроза ${a.threat||1} · ХП ${a.maxHp} · Награда ${fmt(a.reward)}</div></div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,45,120,.15);border-color:#ff2d78;color:#ff2d78" onclick="fightAlien('${a.id}')">Бой</button>${i===0?`<button class="btn btn-sm btn-c" onclick="coopRaid('${a.id}')">Кооп</button>`:''}</div></div>`).join('')}</div>`:''; return `<div class="card" style="margin-top:8px;border-color:#ff2d7833;background:linear-gradient(180deg,rgba(255,45,120,.14),rgba(9,12,24,.65))"><div style="font-size:12px;font-weight:800;color:#ff73ac">⚠️ Вторжение в ${SYSTEMS.find(s=>s.id===inv.sysId)?.name||'неизвестной системе'}</div><div style="font-size:10px;color:var(--muted2);margin:4px 0 6px">Зачистка: ${inv.progress||0}/${inv.totalTargets||1} · ${progress}%</div><div style="height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden"><div style="width:${progress}%;height:100%;background:linear-gradient(90deg,#ff2d78,#ffd166)"></div></div>${grp(scouts,'АВАНГАРД','#7dd3fc')}${grp(elites,'ЭЛИТА','#f59e0b')}${grp(commanders,'КОМАНДИРЫ','#fb7185')}${inv.bossUnlocked&&!inv.bossDefeated&&boss?`<div class="card" style="margin-top:8px;border-color:${boss.color||'#ff2d78'}66;background:rgba(255,45,120,.15)"><div style="font-size:11px;font-weight:800;color:#ffd166;margin-bottom:4px">👑 ФИНАЛЬНЫЙ БОСС ДОСТУПЕН</div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div><div style="font-size:13px;font-weight:700;color:${boss.color||'#ff2d78'}">${boss.icon} ${boss.name}</div><div style="font-size:10px;color:var(--muted2)">Угроза ${boss.threat||5} · ХП ${boss.maxHp} · Награда ${fmt(boss.reward)}</div></div><div style="display:flex;gap:6px"><button class="btn btn-r btn-sm" onclick="fightAlien('${boss.id}')">Босс</button><button class="btn btn-g btn-sm" onclick="coopRaid('${boss.id}')">Кооп</button></div></div></div>`:`<div style="font-size:10px;color:#ffd166;margin-top:8px">👑 Босс откроется после полной зачистки волны</div>`}</div>`; })():''}
     </div>`;
     h+=`<div class="sh">Статистика</div>
     <div class="g2">
@@ -306,7 +333,6 @@ function renderCombatHTML(){
       <div class="mstat"><div class="msv" style="color:var(--purple)">${G.alienKills||0}</div><div class="msl">Пришельцев</div></div>
       <div class="mstat"><div class="msv" style="color:var(--gold)">${fmt(G.totalKillReward||0)}</div><div class="msl">Заработано</div></div>
       <div class="mstat"><div class="msv" style="color:var(--cyan)">${calcAttack()}</div><div class="msl">Атака</div></div>
-      <div class="mstat"><div class="msv" style="color:var(--amber)">${G.shipLosses||0}</div><div class="msl">Потерь корабля</div></div>
     </div>`;
     h+=`<div class="sh">Бестиарий</div><div class="g3">`;
     [{id:'zorg',label:'🟢 ЗORG',col:'#00ff88'},{id:'technoid',label:'🔵 ТЕХНOИДЫ',col:'#00c8ff'},{id:'psi',label:'🟣 ПСИ',col:'#a855f7'}]
@@ -465,46 +491,6 @@ function renderRangersHTML(){
     ${RANKS.filter(r=>G.killCount<r.minKills||G.lvl<r.minLvl).slice(0,1).map(r=>
       `<div style="margin-top:8px;font-size:10px;color:var(--muted2)">Следующее: <b style="color:var(--cyan)">${r.name}</b> (убийств: ${r.minKills}, уровень: ${r.minLvl})</div>`
     ).join('')}</div>`;
-  h+=`<div class="card" style="margin-bottom:10px">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <div>
-        <div style="font-size:13px;font-weight:700">Финансовый статус</div>
-        <div style="font-size:10px;color:var(--muted2);margin-top:4px">Долг: <b style="color:${(G.debt||0)>0?'var(--red)':'var(--green)'}">${fmt(G.debt||0)} кр</b> · лимит: ${fmt(getDebtLimit())}</div>
-        <div style="font-size:10px;color:var(--muted2);margin-top:2px">Разорений: ${G.bankruptcies||0} · Провалено контрактов: ${G.failedQ||0}</div>
-      </div>
-      <div>
-        <button class="btn btn-sm btn-g" onclick="payDebtAll()" ${G.debt>0&&G.cr>0?'':'disabled'}>Погасить долг</button>
-      </div>
-    </div>
-  </div>`;
-
-  const cls=currentClassDef();
-  const clsLvl=classLevel(G.rangerClass);
-  h+=`<div class="card glow-p" style="margin-bottom:10px">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
-      <div>
-        <div style="font-size:9px;letter-spacing:2px;color:var(--muted2);text-transform:uppercase">Класс рейнджера</div>
-        <div style="font-size:18px;font-weight:800">${cls.icon} ${cls.name}</div>
-        <div style="font-size:10px;color:var(--muted2);margin-top:4px">${cls.desc}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-family:var(--mono);font-size:22px;color:var(--purple)">Ур.${clsLvl}</div>
-        <div style="font-size:10px;color:var(--muted2)">XP ${G.classXP?.[G.rangerClass]||0}</div>
-      </div>
-    </div>
-    <div class="g2">
-      <div class="mstat"><div class="msv" style="color:var(--cyan)">${calcRangerPower()}</div><div class="msl">Сила</div></div>
-      <div class="mstat"><div class="msv" style="color:var(--green)">${G.honor||0}</div><div class="msl">Честь</div></div>
-      <div class="mstat"><div class="msv" style="color:var(--gold)">${getInfluence(G.gal)}</div><div class="msl">Влияние в ${GALAXIES.find(g=>g.id===G.gal)?.name||''}</div></div>
-      <div class="mstat"><div class="msv" style="color:var(--purple)">${maxLicensedTier()}</div><div class="msl">Боевая лицензия</div></div>
-    </div>
-    <div class="sh" style="margin-top:8px">Сменить путь</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-      ${RANGER_CLASSES.map(c=>`<button class="btn btn-sm ${c.id===G.rangerClass?'btn-p':'btn-c'}" onclick="setRangerClass('${c.id}')">${c.icon} ${c.name}</button>`).join('')}
-    </div>
-    <div style="font-size:10px;color:var(--muted2);margin-top:8px">Плавный рост теперь идёт через класс, честь, лицензии и влияние, а не только через уровень.</div>
-  </div>`;
-  h+=`<div class="card" style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Лицензии на угрозы</div>${LICENSE_TIERS.map(l=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span>${G.licenses?.[l.tier]?'✅':'🔒'} ${l.name}</span><span style="font-size:10px;color:var(--muted2)">Сила ${l.power} · Честь ${l.honor} · Контракты ${l.completedQ}</span></div>`).join('')}</div>`;
   h+=`<div class="sh">Рейнджеры-боты</div>`;
   RANGER_BOTS.forEach(r=>{
     const owned=G.rangers[r.id]||0;
@@ -515,7 +501,7 @@ function renderRangersHTML(){
       <div class="rg-info">
         <div class="rg-name">${r.name}</div>
         <div class="rg-action">${r.desc}</div>
-        <button class="btn btn-sm${ok?' btn-p':''}" style="margin-top:6px" ${ok?'':'disabled'} onclick="buyRanger('${r.id}')">Нанять · 💰${fmt(cost)}${r.id==='miner_b'?' · 🧪'+(2+owned):''}</button>
+        <button class="btn btn-sm${ok?' btn-p':''}" style="margin-top:6px" ${ok?'':'disabled'} onclick="buyRanger('${r.id}')">Нанять · 💰${fmt(cost)}</button>
       </div>
       <div class="rg-owned">${owned}</div></div>`;
   });
@@ -614,9 +600,6 @@ function renderPoliceHTML(){
     +2 репутации за пирата · +5 за задание · +20 за пришельца<br>
     -30 за захват системы · Взятка: +25 репутации
   </div>`;
-  if((G.financeLog||[]).length){
-    h+=`<div class="sh">Финансовый журнал</div><div class="card" style="font-size:10px;color:var(--muted2);line-height:1.7">${G.financeLog.slice(0,6).join('<br>')}</div>`;
-  }
   return h;
 }
 
@@ -691,7 +674,7 @@ function buyGood(gId){
   G.cargoMax=calcCargoMax();
   if(calcCargoUsed()>=G.cargoMax){toast('📦 Трюм полон!','bad');return;}
   _updateCargoCost(gId,realP,1);
-  G.cr-=realP; G.cargo[gId]=(G.cargo[gId]||0)+1; addClassXP('trade', Math.max(1,realP/40)); addInfluence(G.gal,1);
+  G.cr-=realP; G.cargo[gId]=(G.cargo[gId]||0)+1;
   haptic('light');renderTrade();updateHUD();
 }
 function buyGoodMax(gId){
@@ -703,7 +686,7 @@ function buyGoodMax(gId){
     _updateCargoCost(gId,realP,1);
     G.cr-=realP;G.cargo[gId]=(G.cargo[gId]||0)+1;bought++;
   }
-  if(bought){ addClassXP('trade', Math.max(2,bought*2)); addInfluence(G.gal,1); toast(`📦 ×${bought}`,'good'); }
+  if(bought) toast(`📦 ×${bought}`,'good');
   haptic('medium');renderTrade();updateHUD();
 }
 function sellGood(gId,amt){
@@ -713,16 +696,9 @@ function sellGood(gId,amt){
   const earn=Math.round(price*toSell*(1+gSkill('trade')*.03));
   const avgCost=(G.cargoCost?.[gId]||0)*toSell;
   const profit=earn-avgCost;
-  G.cr+=earn;G.totalCr+=earn; addClassXP('trade', Math.max(2,earn/60)); addInfluence(G.gal,2);
+  G.cr+=earn;G.totalCr+=earn;
   G.cargo[gId]=(G.cargo[gId]||0)-toSell;
   if((G.cargo[gId]||0)<=0) { delete G.cargo[gId]; if(G.cargoCost) delete G.cargoCost[gId]; }
-  // deliver quest: selling goods at destination completes it
-  G.quests.forEach(q=>{
-    if(!q.done&&q.accepted&&q.type==='deliver'&&q.need.good===gId&&q.need.destSys===G.sys){
-      q.progress=(q.progress||0)+toSell;
-      if(q.progress>=q.need.amt) completeQuest(q);
-    }
-  });
   const profitStr=avgCost>0?(profit>=0?` (+${fmt(profit)})`:(` (${fmt(profit)})`)): '';
   toast(`💰 +${fmt(earn)} кр${profitStr}`,'good');haptic('medium');renderTrade();updateHUD();
 }
@@ -734,7 +710,7 @@ function researchTech(id){
   if(t.req&&!hasTech(t.req)){toast('🔒 Нужна предыдущая','bad');return;}
   if(G.cr<t.cost){toast('💸 Мало кредитов','bad');return;}
   if(G.rp<t.rp){toast('🔬 Мало НО','bad');return;}
-  G.cr-=t.cost;G.rp-=t.rp;G.researched[id]=true; addClassXP('science', Math.max(8,t.rp/2)); addInfluence(G.gal,3);
+  G.cr-=t.cost;G.rp-=t.rp;G.researched[id]=true;
   G.maxHull=calcMaxHull();
   toast(`🔬 ${t.name} исследовано!`,'good');hapticN('success');
   renderMoreTab();updateHUD();
@@ -750,7 +726,7 @@ function buyEquip(id){
   const eq=EQUIPMENT.find(e=>e.id===id);if(!eq) return;
   if(G.owned_equip.includes(id)){toast('Уже есть','warn');return;}
   if(G.cr<eq.cost){toast('💸 Мало кредитов','bad');return;}
-  G.cr-=eq.cost;G.owned_equip.push(id); addClassXP('combat', Math.max(6,eq.tier*6));
+  G.cr-=eq.cost;G.owned_equip.push(id);
   toast(`🛒 ${eq.name}`,'good');hapticN('success');renderMoreTab();updateHUD();
 }
 function equipItem(id){
@@ -765,21 +741,9 @@ function buyRanger(id){
   const owned=G.rangers[id]||0;
   const cost=Math.round(r.cost*Math.pow(r.costM,owned));
   if(G.cr<cost){toast('💸 Мало кредитов','bad');return;}
-  G.cr-=cost;G.rangers[id]=(G.rangers[id]||0)+1; addClassXP('influence', 10+owned*2); addInfluence(G.gal,4);
+  G.cr-=cost;G.rangers[id]=(G.rangers[id]||0)+1;
   toast(`🤖 ${r.name} нанят`,'good');hapticN('success');renderMoreTab();updateHUD();
 }
-
-function setRangerClass(id){
-  const c=RANGER_CLASSES.find(x=>x.id===id);
-  if(!c) return;
-  if(id===G.rangerClass){ toast('Этот путь уже выбран','warn'); return; }
-  const switchCost=Math.max(0, 1500 + classLevel(G.rangerClass)*400);
-  if(G.cr<switchCost){ toast(`Нужно ${fmt(switchCost)} кр для смены пути`,'bad'); return; }
-  G.cr-=switchCost; G.rangerClass=id; addHonor(-1);
-  toast(`🧭 Новый путь: ${c.name}`,'good');
-  renderMoreTab(); updateHUD(); renderMine();
-}
-
 function bribePolice(gal){
   const pol=POLICE_FACTIONS[gal];
   const cost=Math.abs(getPoliceRep(gal))*50+500;

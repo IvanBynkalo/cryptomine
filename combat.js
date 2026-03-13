@@ -3,9 +3,25 @@
 // ═══════════════════════════════════════
 
 let alienInvasion=null;
+function normalizeAlienInvasion(inv){
+  if(!inv) return null;
+  if(!Array.isArray(inv.alienIds)) inv.alienIds=inv.alienId?[inv.alienId]:[];
+  if(!inv.race){
+    const base=ALIEN_TYPES.find(a=>a.id===inv.alienId)||ALIEN_TYPES.find(a=>a.id===inv.alienIds?.[0])||ALIEN_TYPES.find(a=>a.id===inv.bossId);
+    inv.race=base?.race||'zorg';
+  }
+  if(!inv.bossId) inv.bossId={zorg:'zorg_behemoth',technoid:'tech_dreadnought',psi:'psi_overmind'}[inv.race]||'mothership';
+  if(inv.bossUnlocked===undefined) inv.bossUnlocked=!inv.alienIds.length;
+  if(inv.bossDefeated===undefined) inv.bossDefeated=false;
+  if(inv.progress===undefined) inv.progress=0;
+  if(inv.totalTargets===undefined) inv.totalTargets=(inv.alienIds?.length||0)+1;
+  inv.alienId=inv.alienId || inv.alienIds?.[0] || (inv.bossUnlocked&&!inv.bossDefeated?inv.bossId:null);
+  return inv;
+}
 function currentAlienInvasion(){
-  if(typeof normalizeAlienInvasion==='function') G.alienInvasion=normalizeAlienInvasion(G.alienInvasion||alienInvasion);
-  return G.alienInvasion||alienInvasion||null;
+  G.alienInvasion=normalizeAlienInvasion(G.alienInvasion||alienInvasion);
+  alienInvasion=G.alienInvasion;
+  return alienInvasion;
 }
 
 function startCombat(tier){
@@ -19,9 +35,8 @@ function findEnemy(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   const galIdx=GALAXIES.findIndex(g=>g.id===G.gal);
   if(Math.random()<sys.pc+(galIdx*0.15)){
-    const rawTier=Math.min(PIRATES.length-1,Math.floor(G.lvl/6)+galIdx+Math.floor((calcRangerPower()||0)/220));
-    const tier=smoothEnemyTier(rawTier);
-    startCombat(tier-1);
+    const tier=Math.min(PIRATES.length-1,Math.floor(G.lvl/5)+galIdx);
+    startCombat(tier);
     toast(`☠️ Пираты в ${sys.name}!`,'bad');
   } else {
     toast('🌌 Сектор чист','good');
@@ -34,11 +49,10 @@ function findEnemy(){
 function fightAlien(alienId){
   const inv=currentAlienInvasion();
   if(!inv){toast('Нет вторжения','bad');return;}
-  alienInvasion=G.alienInvasion=inv;
-  const chosenId=alienId||inv.alienId||inv.alienIds?.[0];
-  const al=ALIEN_TYPES.find(a=>a.id===chosenId)||ALIEN_TYPES.find(a=>a.id===inv.alienId||a.id===inv.race)||ALIEN_TYPES[0];
-  inv.alienId=al.id;
-  G.combat={...al,hp:al.maxHp,tier:6+al.threat,isAlien:true};
+  const chosenId=alienId||inv.alienId||inv.alienIds?.[0]||((inv.bossUnlocked&&!inv.bossDefeated)?inv.bossId:null);
+  const al=ALIEN_TYPES.find(a=>a.id===chosenId)||ALIEN_TYPES[0];
+  inv.alienId=al.id; alienInvasion=G.alienInvasion=inv;
+  G.combat={...al,hp:al.maxHp,tier:6+al.threat,isAlien:true,isAlienBoss:al.id===inv.bossId};
   G.combatLog=[`⚠️ Боевой контакт: ${al.icon} ${al.name}`,`💬 ${al.desc}`];
   toast(`${al.icon} Бой с ${al.name}!`,'bad');
   goTo('more',document.querySelector('.nb'));
@@ -49,12 +63,11 @@ function fightAlien(alienId){
 function coopRaid(alienId){
   const inv=currentAlienInvasion();
   if(!inv){toast('Нет вторжения','bad');return;}
-  alienInvasion=G.alienInvasion=inv;
-  const chosenId=alienId||inv.alienId||inv.alienIds?.[0];
-  const al=ALIEN_TYPES.find(a=>a.id===chosenId)||ALIEN_TYPES.find(a=>a.id===inv.alienId||a.id===inv.race)||ALIEN_TYPES[0];
-  inv.alienId=al.id;
+  const chosenId=alienId||inv.alienId||inv.alienIds?.[0]||((inv.bossUnlocked&&!inv.bossDefeated)?inv.bossId:null);
+  const al=ALIEN_TYPES.find(a=>a.id===chosenId)||ALIEN_TYPES[0];
+  inv.alienId=al.id; alienInvasion=G.alienInvasion=inv;
   const buddies=onlineRangers.filter(r=>!r.isMe).slice(0,2);
-  G.combat={...al,hp:Math.round(al.maxHp*.4),maxHp:al.maxHp,tier:6+al.threat,isAlien:true,coop:true};
+  G.combat={...al,hp:Math.round(al.maxHp*.4),maxHp:al.maxHp,tier:6+al.threat,isAlien:true,coop:true,isAlienBoss:al.id===inv.bossId};
   G.combatLog=[`🤝 Кооп с: ${buddies.map(r=>r.name).join(', ')}`,`⚠️ ${al.name} ослаблен союзниками на 60%!`];
   toast(`🤝 Кооп бой начат!`,'good');
   setMoreTab('combat',null);renderMoreTab();
@@ -97,25 +110,40 @@ function combatAction(act){
   if(e.hp<=0){
     const loot=e.reward+Math.floor(G.lvl*30);
     G.cr+=loot;G.totalCr+=loot;
-    G.rp+=e.xp*calcRpMult();G.xp+=e.xp;G.killCount++; addClassXP(e.isAlien?'alien':'combat', Math.max(12,e.xp/3)); addInfluence(G.gal, e.isAlien?10:2); unlockEligibleLicenses();
+    G.rp+=e.xp*calcRpMult();G.xp+=e.xp;G.killCount++;
     G.totalKillReward=(G.totalKillReward||0)+loot;
     if(e.isAlien){
-      const xenoGain=Math.max(1,Math.ceil((e.threat||1)/2));
-      G.cargo.xeno=(G.cargo.xeno||0)+xenoGain;
       const inv=currentAlienInvasion();
-      if(inv){
-        inv.alienIds=(inv.alienIds||[]).filter(id=>id!==e.id);
-        inv.alienId=inv.alienIds[0]||null;
-        if(!inv.alienIds.length){ alienInvasion=null; G.alienInvasion=null; }
-        else { alienInvasion=G.alienInvasion=inv; }
-      } else { alienInvasion=null; G.alienInvasion=null; }
       G.alienKills=(G.alienKills||0)+1;
       if(e.race){if(!G.alienKillsByRace)G.alienKillsByRace={};G.alienKillsByRace[e.race]=(G.alienKillsByRace[e.race]||0)+1;}
-      addPoliceRep(G.gal,20); addHonor(6);
+      addPoliceRep(G.gal,20);
       addLeagueScore(30);
-      toast(`👽 Вторжение отражено! +${fmt(loot)} кр · 🧪 +${xenoGain}`,'good');
+      if(inv){
+        if(e.id===inv.bossId){
+          inv.bossDefeated=true; inv.progress=inv.totalTargets||inv.progress||1;
+          alienInvasion=null; G.alienInvasion=null;
+          toast(`👑 Босс вторжения уничтожен! +${fmt(loot)} кр`,'good');
+        }else{
+          const idx=(inv.alienIds||[]).findIndex(id=>id===e.id);
+          if(idx>=0) inv.alienIds.splice(idx,1);
+          inv.progress=(inv.progress||0)+1;
+          if(!(inv.alienIds||[]).length){
+            inv.bossUnlocked=true;
+            inv.alienId=inv.bossId;
+            alienInvasion=G.alienInvasion=inv;
+            toast(`👽 Волна расчищена! Открылся босс вторжения. +${fmt(loot)} кр`,'good');
+          }else{
+            inv.alienId=inv.alienIds[0];
+            alienInvasion=G.alienInvasion=inv;
+            toast(`👽 Цель уничтожена! Осталось ${(inv.alienIds||[]).length} врагов.`,'good');
+          }
+        }
+      } else {
+        alienInvasion=null; G.alienInvasion=null;
+        toast(`👽 Вторжение отражено! +${fmt(loot)} кр`,'good');
+      }
     } else {
-      addPoliceRep(G.gal,2); addHonor(2);
+      addPoliceRep(G.gal,2);
       addLeagueScore(5);
       toast(`🏆 Победа! +${fmt(loot)} кр`,'good');
     }
@@ -174,7 +202,11 @@ function combatAction(act){
 
   // ── Check death ──
   if(G.hull<=0){
-    handleShipDestroyed();
+    G.hull=Math.max(1,Math.round(G.maxHull*.08));
+    const penalty=Math.floor(G.cr*.25);
+    G.cr=Math.max(0,G.cr-penalty);
+    G.combat=null;G.combatLog=[];
+    toast(`💀 Уничтожен! -${fmt(penalty)} кр`,'bad');
     hapticN('error');renderMoreTab();updateHUD();return;
   }
   haptic('medium');renderMoreTab();updateHUD();

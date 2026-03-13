@@ -59,17 +59,17 @@ async function fetchOnline(){
     const needed=6+Math.floor(_fakeSeed(G.playerName||'x',1)*5|0)-realCount;
     const used=new Set(players.map(p=>p.name));
     // use deterministic seeded fakes per session (change every 5 min)
-    const timeSeed=Math.floor(Date.now()/1800000); // changes every 30 min
+    const timeSeed=Math.floor(Date.now()/300000); // changes every 5 min
     for(let i=0;i<Math.max(0,needed);i++){
       const idx=(_fakeSeed(G.playerName+i+timeSeed,FAKE_NAMES.length))|0;
       const n=FAKE_NAMES[idx%FAKE_NAMES.length];
       if(used.has(n)) continue;
       used.add(n);
       const seed=_fakeSeed(n,100);
-      const lvl=Math.max(1,Math.min(18,Math.floor(seed*0.08+G.lvl*0.18+1)));
+      const lvl=Math.max(1,Math.min(50,Math.floor(seed*0.5+G.lvl*0.3+1)));
       players.push({
         name:n, lvl, kills:Math.floor(seed*2),
-        rank:getRankByLvl(lvl), score:Math.floor(seed*1.2+G.leagueScore*0.08),
+        rank:getRankByLvl(lvl), score:Math.floor(seed*5+G.leagueScore*0.3),
         sys:SYSTEMS[Math.floor(seed*0.19*SYSTEMS.length)%SYSTEMS.length].id,
         gal:GALAXIES[Math.floor(seed*0.04)%GALAXIES.length].id,
         ts:Date.now()-Math.floor(seed*30000),
@@ -159,7 +159,7 @@ async function renderOnlineRangers(){
   const myPos=(leagueData.findIndex(p=>p.isMe||p.name===G.playerName))+1||'?';
   const sys=SYSTEMS.find(s=>s.id===G.sys);
 
-  let h=`${uiBanner('🌐','Сеть рейнджеров','Лига, живые пилоты и боты-патрульные в одном тактическом канале.',`<div style="margin-top:8px">${uiChip('Место #'+myPos)} ${uiChip('Очки '+fmt(G.leagueScore||0))} ${uiChip('Локация '+(sys?.name||'?'))}</div>`)}
+  let h=`
   <!-- ── Season header ── -->
   <div style="background:linear-gradient(135deg,var(--card2),var(--card3));border:1px solid var(--b2);border-radius:12px;padding:14px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -200,9 +200,9 @@ async function renderOnlineRangers(){
       <div style="font-size:18px">${tier.icon}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;font-weight:700;${isMe?'color:var(--cyan)':''}">
-          ${p.name}${isMe?' ⬅ Вы':''} ${p.isFake?'<span style="color:var(--gold)">[БОТ]</span>':'<span style="color:var(--green)">[ЧЕЛ]</span>'}
+          ${p.name}${isMe?' ⬅ Вы':''}${p.isFake?'':' 🔴'}
         </div>
-        <div style="font-size:10px;color:var(--muted2)">${p.rank} · Ур.${p.lvl} · ⚔️${p.kills||0} · ${p.isFake?'слабый ИИ':'живой игрок'}</div>
+        <div style="font-size:10px;color:var(--muted2)">${p.rank} · Ур.${p.lvl} · ⚔️${p.kills||0}</div>
       </div>
       <div style="text-align:right">
         <div style="font-family:var(--mono);font-size:13px;color:${tier.color}">${fmt(p.score||0)}</div>
@@ -227,28 +227,20 @@ async function renderOnlineRangers(){
         box-shadow:0 0 6px ${p.isFake||isMe?'#00ff88':'#00c8ff'}"></div>
       <div style="flex:1">
         <div style="font-size:12px;font-weight:700;${isMe?'color:var(--cyan)':''}">${p.name}</div>
-        <div style="font-size:10px;color:var(--muted2)">${p.rank} · ${pSys?.name||'?'} · ${ago} · ${p.isFake?'бот':'игрок'}</div>
+        <div style="font-size:10px;color:var(--muted2)">${p.rank} · ${pSys?.name||'?'} · ${ago}</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:11px;color:var(--purple)">Ур.${p.lvl}</div>
-        ${!isMe&&normalizeAlienInvasion(G.alienInvasion||alienInvasion)?`<button class="btn btn-sm btn-g" onclick="coopRaid()" style="margin-top:2px">Кооп</button>`:''}
+        ${!isMe&&currentAlienInvasion()?`<button class="btn btn-sm btn-g" onclick="coopRaid()" style="margin-top:2px">Коопереция</button>`:''}
       </div>
     </div>`;
   });
 
-  const invasion=normalizeAlienInvasion(G.alienInvasion||alienInvasion);
-  if(invasion){
-    const al=ALIEN_TYPES.find(a=>a.id===invasion.alienId);
-    const alSys=SYSTEMS.find(s=>s.id===invasion.sysId);
-    h+=`<div style="margin-top:10px;background:rgba(255,45,120,.08);border:1px solid rgba(255,45,120,.3);
-      border-radius:10px;padding:14px">
-      <div style="color:#ff2d78;font-weight:700;margin-bottom:6px">⚠️ АКТИВНОЕ ВТОРЖЕНИЕ</div>
-      <div style="font-size:12px;color:var(--muted2)">${al?.icon||'👽'} ${al?.name||'Пришелец'} в системе ${alSys?.name||'?'}</div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn btn-r btn-full" onclick="fightAlien()">⚔️ Атаковать одному</button>
-        <button class="btn btn-g btn-full" onclick="coopRaid()">🤝 Коопреция</button>
-      </div>
-    </div>`;
+  const inv=currentAlienInvasion();
+  if(inv){
+    const target=ALIEN_TYPES.find(a=>a.id===inv.alienId||((inv.bossUnlocked&&!inv.bossDefeated)?inv.bossId:null));
+    const alSys=SYSTEMS.find(s=>s.id===inv.sysId);
+    h+=`<div style="margin-top:10px;background:rgba(255,45,120,.08);border:1px solid rgba(255,45,120,.3);border-radius:10px;padding:14px"><div style="color:#ff2d78;font-weight:700;margin-bottom:6px">⚠️ АКТИВНОЕ ВТОРЖЕНИЕ</div><div style="font-size:12px;color:var(--muted2)">${target?.icon||'👽'} ${target?.name||'Пришелец'} в системе ${alSys?.name||'?'} · ${inv.bossUnlocked&&!inv.bossDefeated?'Босс доступен':`Осталось целей: ${(inv.alienIds||[]).length}`}</div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-r btn-full" onclick="fightAlien('${target?.id||''}')">⚔️ Атаковать</button><button class="btn btn-g btn-full" onclick="coopRaid('${target?.id||''}')">🤝 Коопреция</button></div></div>`;
   }
 
   // scoring guide
