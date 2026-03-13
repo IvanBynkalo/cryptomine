@@ -472,9 +472,15 @@ function renderSkillsHTML(){
 
 // ── Market HTML ──
 function renderMarketHTML(){
-  // Перенаправляем на новый каталог техники
-  catalogFilter=marketCat==='shield'?'defense':marketCat;
-  return renderCatalogHTML();
+  // Полный каталог техники — заменяет старый рынок
+  const catMap={hull:'hull',engine:'engine',weapon:'weapon',shield:'defense'};
+  catalogFilter=catMap[marketCat]||marketCat;
+  if(typeof renderCatalogHTML==='function') return renderCatalogHTML();
+  // Fallback если каталог не загружен
+  return `<div class="card" style="text-align:center;padding:20px;color:var(--muted2)">
+    ⚠️ Каталог загружается... Обновите страницу или перейдите в таб 📋 Каталог
+    <br><br><button class="btn btn-sm btn-c" onclick="setMoreTab('catalog',null)">📋 Открыть Каталог</button>
+  </div>`;
 }
 
 // ── Rangers HTML ──
