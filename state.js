@@ -19,14 +19,18 @@ function freshState(){
     quests:[],completedQ:0,
     combat:null,combatLog:[],
     killCount:0,totalKillReward:0,alienKills:0,alienKillsByRace:{},
-    alienInvasion:null,
     prices:{},priceHistory:{},
     debrisActive:[],botActions:[],
     policeRep:{},capturedSystems:[],
     landPlots:{}, // sysId -> {good, level, lastHarvestDay}
+    alienInvasion:null,
+    rareMatter:0,
+    questHistory:[],
+    currentPlanetBySystem:{sol:0},
     playerName:null,
     leagueSeason:1,leagueScore:0,leagueBestSeason:0,
     seasonStart:Date.now(),
+    saveVersion:5,
     lastSave:Date.now(),
   };
 }
@@ -40,6 +44,8 @@ function hasTech(id) { return !!(G&&G.researched ? G.researched[id] : false); }
 
 function saveG(){
   try{
+    G.lastSave=Date.now();
+    G.saveVersion=5;
     // keep previous save as backup slot _bak
     const prev=localStorage.getItem('srw_v4');
     if(prev) localStorage.setItem('srw_v4_bak',prev);
@@ -52,15 +58,49 @@ function loadG(){
     return s ? JSON.parse(s) : null;
   }catch(e){ return null; }
 }
+function normalizeAlienInvasion(inv){
+  if(!inv) return null;
+  const alienId=inv.alienId||inv.race||'zorg_scout';
+  const al=typeof ALIEN_TYPES!=='undefined' ? (ALIEN_TYPES.find(a=>a.id===alienId)||ALIEN_TYPES[0]) : null;
+  return {
+    ...inv,
+    alienId,
+    race: inv.race || al?.race,
+    raceIcon: inv.raceIcon || al?.icon || '👽',
+    raceName: inv.raceName || al?.name || 'Пришельцы',
+  };
+}
+function migrateState(s){
+  const n={...freshState(), ...(s||{})};
+  if(!n.month) n.month=1;
+  if(!n.year) n.year=2450;
+  if(!n.cargoCost) n.cargoCost={};
+  if(!n.landPlots) n.landPlots={};
+  if(!n.questHistory) n.questHistory=[];
+  if(!n.currentPlanetBySystem) n.currentPlanetBySystem={sol:0};
+  if(typeof n.rareMatter!=='number') n.rareMatter=0;
+  n.alienInvasion=normalizeAlienInvasion(n.alienInvasion);
+  n.quests=(n.quests||[]).map(q=>({
+    ...q,
+    progress:q.progress||0,
+    accepted:!!q.accepted,
+    done:!!q.done,
+  }));
+  n.saveVersion=5;
+  return n;
+}
+function getPlanetIndex(sysId){
+  if(!G.currentPlanetBySystem) G.currentPlanetBySystem={};
+  return G.currentPlanetBySystem[sysId]||0;
+}
+function getPlanetEmoji(sysId){
+  const sys=(typeof SYSTEMS!=='undefined'?SYSTEMS.find(s=>s.id===sysId):null);
+  const planets=sys?.planets||[sys?.emoji||'🪐'];
+  return planets[Math.min(planets.length-1, getPlanetIndex(sysId))]||planets[0]||'🪐';
+}
 
 // ── Init ──
-G = loadG()||freshState();
-// migrate missing fields
-if(!G.month)      G.month=1;
-if(!G.year)       G.year=2450;
-if(!G.cargoCost)  G.cargoCost={};
-if(!G.landPlots)  G.landPlots={};
-if(G.alienInvasion===undefined) G.alienInvasion=null;
+G = migrateState(loadG()||freshState());
 
 // offline earnings
 (()=>{

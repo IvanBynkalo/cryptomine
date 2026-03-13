@@ -81,8 +81,10 @@ function travelDays(sys){
 const QUEST_GEN=[
   {type:'deliver',weight:4},{type:'kill',weight:3},{type:'collect',weight:3},
 ];
+function absDay(){ return G.day+(G.month-1)*30+(G.year-2450)*360; }
+
 function refreshQuests(){
-  G.quests=G.quests.filter(q=>!q.done&&(!q.expires||q.expires>G.day+(G.month-1)*30+(G.year-2450)*360));
+  G.quests=G.quests.filter(q=>!q.done&&(!q.expires||q.expires>absDay()));
   const perSys=2;
   MAYORS.forEach(m=>{
     const existing=G.quests.filter(q=>q.sysId===m.sysId).length;
@@ -92,10 +94,10 @@ function refreshQuests(){
     for(const t of QUEST_GEN){ acc+=t.weight; if(roll<acc){type=t.type;break;} }
     const reward=Math.round((500+G.lvl*80+Math.random()*500)*(1+gSkill('charm')*0.05));
     const xp=Math.floor(reward/10);const rp=Math.floor(reward/50);
-    const absDay=G.day+(G.month-1)*30+(G.year-2450)*360;
+    const absDayNow=absDay();
     let q={id:`q_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
       type,sysId:m.sysId,giver:m.name,giverIcon:m.icon,
-      reward,xp,rp,expires:absDay+5,progress:0,accepted:false,done:false};
+      reward,xp,rp,expires:absDayNow+5,progress:0,accepted:false,done:false};
     if(type==='deliver'){
       const goods=Object.keys(GOODS);
       const good=goods[Math.floor(Math.random()*goods.length)];
@@ -129,17 +131,28 @@ function checkQuestProgress(){
     // kill/collect quests have manual claim button or auto-complete
   });
 }
+function recordQuestHistory(q){
+  if(!G.questHistory) G.questHistory=[];
+  G.questHistory.unshift({
+    id:q.id,title:q.title,type:q.type,reward:q.reward,xp:q.xp,rp:q.rp,
+    doneAt:timeStr(),doneAbsDay:absDay(),giver:q.giver,system:q.sysId
+  });
+  if(G.questHistory.length>40) G.questHistory=G.questHistory.slice(0,40);
+}
 function completeQuest(q){
   if(q.done) return;
   q.done=true;q.doneDay=G.day;
+  const rareGain=Math.max(1, q.type==='kill'?2:(q.type==='collect'?1:1));
   G.cr+=q.reward;G.totalCr+=q.reward;G.xp+=q.xp||20;G.rp+=q.rp||5;
+  G.rareMatter=(G.rareMatter||0)+rareGain;
   G.completedQ++;
+  recordQuestHistory(q);
   addPoliceRep(G.gal,5);
   addLeagueScore(20);
-  toast(`🎉 Задание выполнено! +${fmt(q.reward)} кр`,'good');
+  toast(`🎉 Задание выполнено! +${fmt(q.reward)} кр · +${rareGain} ксенокр.`,'good');
   hapticN('success');updateQuestBadge();
 }
-function acceptCollect(qId){
+function acceptQuest(qId){
   const q=G.quests.find(q=>q.id===qId);
   if(!q||q.accepted||q.done) return;
   q.accepted=true;toast('📋 Задание принято!');renderQuests();
@@ -150,6 +163,7 @@ function claimKillQuest(qId){
   if((q.progress||0)<q.need.count){toast('Ещё не выполнено','bad');return;}
   completeQuest(q);renderQuests();
 }
+function acceptCollect(qId){ return acceptQuest(qId); }
 function claimCollectQuest(qId){
   const q=G.quests.find(q=>q.id===qId);
   if(!q||q.done||q.type!=='collect') return;
@@ -180,23 +194,24 @@ function collectDebris(dbId){
   const d=G.debrisActive[i];
   if(Date.now()>d.expires){G.debrisActive.splice(i,1);renderMoreTab();return;}
   G.debrisActive.splice(i,1);
-  G.cr+=d.reward;G.totalCr+=d.reward;G.rp+=d.rp;
+  Object.entries(d.reward||{}).forEach(([gId,qty])=>{ G.cargo[gId]=(G.cargo[gId]||0)+qty; });
+  G.rp+=d.rp;
   // collect quests progress
   G.quests.forEach(q=>{
     if(!q.done&&q.accepted&&q.type==='collect'&&q.need.debrisType===d.type){
       q.progress=(q.progress||0)+1;
-      if(q.progress>=q.need.count) completeQuest(q);
+      q.readyToClaim=(q.progress>=q.need.count);
     }
   });
-  toast(`${d.icon} +${fmt(d.reward)} кр`,'good');haptic('medium');renderMoreTab();
+  toast(`${d.icon} Обломки собраны`,'good');haptic('medium');renderMoreTab();
 }
 
 // ── Bot rangers ──
 function tickBotRangers(){
   const numMiners=G.rangers['miner_b']||0;
   const numTraders=G.rangers['trader']||0;
-  const numHunters=G.rangers['hunter']||0;
-  const numScouts=G.rangers['scout']||0;
+  const numHunters=G.rangers['pirate_h']||0;
+  const numScouts=G.rangers['scout_b']||0;
   if(numMiners>0){
     const earn=numMiners*5;G.cr+=earn;G.totalCr+=earn;
     G.botActions.unshift(`⛏️ Майнеры добыли +${fmt(earn)} кр`);
@@ -224,7 +239,7 @@ function buyLandPlot(sysId,good){
   const cost=costs[level];
   if(G.cr<cost){toast(`💸 Нужно ${fmt(cost)} кр`,'bad');return;}
   G.cr-=cost;
-  G.landPlots[sysId]={good,level:level+1,lastHarvestDay:G.day+(G.month-1)*30+(G.year-2450)*360};
+  G.landPlots[sysId]={good:good||(existing?.good)||sys.goods?.[0],level:level+1,lastHarvestDay:absDay()};
   addLeagueScore(100);
   toast(`🌱 Участок куплен в ${sys.name} (ур.${level+1})!`,'good');hapticN('success');
   renderMoreTab();updateHUD();
@@ -237,6 +252,7 @@ function harvestLandPlots(){
     G.cargo[plot.good]=(G.cargo[plot.good]||0)+produce;
     const cargoMax=calcCargoMax();
     if(calcCargoUsed()>cargoMax) G.cargo[plot.good]=Math.max(0,G.cargo[plot.good]-produce);
+    plot.lastHarvestDay=absDay();
   });
 }
 
@@ -252,8 +268,9 @@ function checkAlienInvasion(){
   SYSTEMS.filter(s=>s.type==='danger'||s.gal==='gamma'||s.gal==='chaos').forEach(sys=>{
     if(Math.random()<0.04&&!G.alienInvasion){
       const race=ALIEN_TYPES[Math.floor(Math.random()*3)];
-      if(typeof setAlienInvasion==='function') setAlienInvasion({sysId:sys.id,alienId:race.id,race:race.id,raceIcon:race.icon,raceName:race.name,spawnDay:G.day});
-      else G.alienInvasion={sysId:sys.id,alienId:race.id,race:race.id,raceIcon:race.icon,raceName:race.name,spawnDay:G.day};
+      const variants=ALIEN_TYPES.filter(a=>a.race===race.race);
+      const alien=variants[Math.floor(Math.random()*variants.length)]||race;
+      G.alienInvasion=normalizeAlienInvasion({sysId:sys.id,alienId:alien.id,race:alien.race,raceIcon:alien.icon,raceName:alien.name,spawnDay:absDay()});
       toast(`👾 Вторжение! ${race.icon}${race.name} в ${sys.name}!`,'bad');
     }
   });
@@ -279,15 +296,24 @@ function lvlCheck(){
     addLeagueScore(50);
   }
 }
+function helperRareCost(id, owned){
+  if(id!=='miner') return 0;
+  return 2 + owned;
+}
 function buyHelper(id){
   const h=HELPERS.find(x=>x.id===id);
   const owned=G.helpers[id]||0;
   const cost=Math.round(h.cost*Math.pow(h.costM,owned));
+  const rareCost=helperRareCost(id, owned);
   if(G.cr<cost){toast('💸 Мало кредитов','bad');return;}
-  G.cr-=cost;G.helpers[id]=(G.helpers[id]||0)+1;
+  if((G.rareMatter||0)<rareCost){toast(`🧪 Нужно ${rareCost} ксенокрист.`, 'bad');return;}
+  G.cr-=cost;
+  if(rareCost>0) G.rareMatter=Math.max(0,(G.rareMatter||0)-rareCost);
+  G.helpers[id]=(G.helpers[id]||0)+1;
   toast(`${h.icon} Нанят: ${h.name}`,'good');hapticN('success');
   renderMine();updateHUD();
 }
+
 function buyShipUpg(id){
   const u=SHIP_UPGRADES.find(x=>x.id===id);
   const lvl=gUpg(id);

@@ -121,7 +121,8 @@ function drawGalaxy(){
     }
 
     // alien invasion marker
-    if((G.alienInvasion||alienInvasion)&&(G.alienInvasion||alienInvasion).sysId===sys.id){
+    const invasion=normalizeAlienInvasion(G.alienInvasion||alienInvasion);
+    if(invasion&&invasion.sysId===sys.id){
       const pulse=.4+.4*Math.sin(Date.now()*.006);
       ctx.strokeStyle=`rgba(255,45,120,${pulse})`; ctx.lineWidth=2.5;
       ctx.beginPath(); ctx.arc(x,y,22,0,Math.PI*2); ctx.stroke();
@@ -207,13 +208,15 @@ function showSysPanel(sys){
   const typeLabel={home:'🏠 База',mining:'⛏️ Добыча',trade:'🛒 Торговля',danger:'☠️ Опасно',science:'🔬 Наука',paradise:'🌿 Рай'}[sys.type]||'';
   const canRefuelHere=['trade','paradise','home'].includes(sys.type);
   const planets=sys.planets||[sys.emoji];
+  const currentPlanet=getPlanetIndex(sys.id);
   document.getElementById('sp-nm').textContent=`${sys.emoji} ${sys.name}`;
   document.getElementById('sp-ds').innerHTML=
     `<span style="color:var(--muted2)">${typeLabel}</span> &nbsp;·&nbsp; ☠️ ${Math.round(sys.pc*100)}% &nbsp;·&nbsp; ⚡ ${isCur?0:fc} топл.`+
     (!isCur?` &nbsp;·&nbsp; 📅 ~${days} дн.`:'')+
     (canRefuelHere?' &nbsp;<span style="color:var(--cyan)">⛽</span>':'')+
-    `<br><span style="font-size:13px;letter-spacing:2px" title="Планеты системы">${planets.join(' ')}</span>`+
-    ((G.alienInvasion||alienInvasion)?.sysId===sys.id?`<br><span style="color:#ff2d78">⚠️ ВТОРЖЕНИЕ ПРИШЕЛЬЦЕВ!</span>`:'')+
+    `<br><span style="font-size:13px;letter-spacing:2px" title="Планеты системы">${planets.map((p,i)=> i===currentPlanet?`<b>${p}</b>`:p).join(' ')}</span>`+
+    `<br><span style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${planets.map((p,i)=>`<button class=\"btn btn-sm ${i===currentPlanet?'btn-c':''}\" onclick=\"event.stopPropagation();selectPlanet('${sys.id}',${i})\">${p} Планета ${i+1}</button>`).join('')}</span>`+
+    (normalizeAlienInvasion(G.alienInvasion||alienInvasion)?.sysId===sys.id?`<br><span style="color:#ff2d78">⚠️ ВТОРЖЕНИЕ ПРИШЕЛЬЦЕВ!</span>`:'')+
     (sys.goods?`<br><span style="font-size:9px;color:var(--muted2)">Товары: ${sys.goods.map(g=>GOODS[g]?.name||g).join(', ')}</span>`:'');
   const btn=document.getElementById('fly-btn');
   if(isCur){btn.textContent='✅ Вы здесь';btn.disabled=true;}
@@ -229,12 +232,23 @@ function closePanel(){
   selSys=null;
 }
 
+function selectPlanet(sysId, idx){
+  if(!G.currentPlanetBySystem) G.currentPlanetBySystem={};
+  const sys=SYSTEMS.find(s=>s.id===sysId);
+  const planets=sys?.planets||[];
+  G.currentPlanetBySystem[sysId]=Math.max(0,Math.min(planets.length-1,idx));
+  if(selSys===sysId&&sys) showSysPanel(sys);
+  updateHUD();
+}
+
 function doFly(){
   if(!selSys||traveling) return;
   const sys=SYSTEMS.find(s=>s.id===selSys);
   const fc=calcFuelCost(sys);
   if(hasTech('quantum')){
     G.sys=selSys; G.gal=sys.gal;
+    if(!G.currentPlanetBySystem) G.currentPlanetBySystem={};
+    if(G.currentPlanetBySystem[selSys]===undefined) G.currentPlanetBySystem[selSys]=0;
     afterArrive(sys); closePanel(); return;
   }
   G.fuel=Math.max(0,G.fuel-fc);
@@ -249,6 +263,8 @@ function doFly(){
     if(travelProg>=1){
       clearInterval(iv); traveling=false;
       G.sys=selSys; G.gal=sys.gal;
+    if(!G.currentPlanetBySystem) G.currentPlanetBySystem={};
+    if(G.currentPlanetBySystem[selSys]===undefined) G.currentPlanetBySystem[selSys]=0;
       afterArrive(sys); closePanel();
     }
   },60);

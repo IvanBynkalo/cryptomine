@@ -59,17 +59,17 @@ async function fetchOnline(){
     const needed=6+Math.floor(_fakeSeed(G.playerName||'x',1)*5|0)-realCount;
     const used=new Set(players.map(p=>p.name));
     // use deterministic seeded fakes per session (change every 5 min)
-    const timeSeed=Math.floor(Date.now()/300000); // changes every 5 min
+    const timeSeed=Math.floor(Date.now()/1800000); // changes every 30 min
     for(let i=0;i<Math.max(0,needed);i++){
       const idx=(_fakeSeed(G.playerName+i+timeSeed,FAKE_NAMES.length))|0;
       const n=FAKE_NAMES[idx%FAKE_NAMES.length];
       if(used.has(n)) continue;
       used.add(n);
       const seed=_fakeSeed(n,100);
-      const lvl=Math.max(1,Math.min(50,Math.floor(seed*0.5+G.lvl*0.3+1)));
+      const lvl=Math.max(1,Math.min(18,Math.floor(seed*0.08+G.lvl*0.18+1)));
       players.push({
         name:n, lvl, kills:Math.floor(seed*2),
-        rank:getRankByLvl(lvl), score:Math.floor(seed*5+G.leagueScore*0.3),
+        rank:getRankByLvl(lvl), score:Math.floor(seed*1.2+G.leagueScore*0.08),
         sys:SYSTEMS[Math.floor(seed*0.19*SYSTEMS.length)%SYSTEMS.length].id,
         gal:GALAXIES[Math.floor(seed*0.04)%GALAXIES.length].id,
         ts:Date.now()-Math.floor(seed*30000),
@@ -200,9 +200,9 @@ async function renderOnlineRangers(){
       <div style="font-size:18px">${tier.icon}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;font-weight:700;${isMe?'color:var(--cyan)':''}">
-          ${p.name}${isMe?' ⬅ Вы':''}${p.isFake?'':' 🔴'}
+          ${p.name}${isMe?' ⬅ Вы':''} ${p.isFake?'<span style="color:var(--gold)">[БОТ]</span>':'<span style="color:var(--green)">[ЧЕЛ]</span>'}
         </div>
-        <div style="font-size:10px;color:var(--muted2)">${p.rank} · Ур.${p.lvl} · ⚔️${p.kills||0}</div>
+        <div style="font-size:10px;color:var(--muted2)">${p.rank} · Ур.${p.lvl} · ⚔️${p.kills||0} · ${p.isFake?'слабый ИИ':'живой игрок'}</div>
       </div>
       <div style="text-align:right">
         <div style="font-family:var(--mono);font-size:13px;color:${tier.color}">${fmt(p.score||0)}</div>
@@ -227,18 +227,18 @@ async function renderOnlineRangers(){
         box-shadow:0 0 6px ${p.isFake||isMe?'#00ff88':'#00c8ff'}"></div>
       <div style="flex:1">
         <div style="font-size:12px;font-weight:700;${isMe?'color:var(--cyan)':''}">${p.name}</div>
-        <div style="font-size:10px;color:var(--muted2)">${p.rank} · ${pSys?.name||'?'} · ${ago}</div>
+        <div style="font-size:10px;color:var(--muted2)">${p.rank} · ${pSys?.name||'?'} · ${ago} · ${p.isFake?'бот':'игрок'}</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:11px;color:var(--purple)">Ур.${p.lvl}</div>
-        ${!isMe&&(G.alienInvasion||alienInvasion)?`<button class="btn btn-sm btn-g" onclick="coopRaid()" style="margin-top:2px">Коопереция</button>`:''}
+        ${!isMe&&normalizeAlienInvasion(G.alienInvasion||alienInvasion)?`<button class="btn btn-sm btn-g" onclick="coopRaid()" style="margin-top:2px">Кооп</button>`:''}
       </div>
     </div>`;
   });
 
-  const invasion=(G.alienInvasion||alienInvasion);
+  const invasion=normalizeAlienInvasion(G.alienInvasion||alienInvasion);
   if(invasion){
-    const al=ALIEN_TYPES.find(a=>a.id===invasion.alienId||invasion.race);
+    const al=ALIEN_TYPES.find(a=>a.id===invasion.alienId);
     const alSys=SYSTEMS.find(s=>s.id===invasion.sysId);
     h+=`<div style="margin-top:10px;background:rgba(255,45,120,.08);border:1px solid rgba(255,45,120,.3);
       border-radius:10px;padding:14px">
