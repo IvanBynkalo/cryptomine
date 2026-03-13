@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>⚡ CryptoMine — Кликер</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap');
+
+  :root {
+    --bg: #050510;
+    --surface: #0d0d2b;
+    --card: #111133;
+    --accent: #00f5ff;
+    --accent2: #ff006e;
+    --accent3: #7b2fff;
+    --gold: #ffd700;
+    --text: #e0e8ff;
+    --muted: #5a6490;
+    --glow: 0 0 20px rgba(0,245,255,0.4);
+    --glow2: 0 0 20px rgba(255,0,110,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(123,47,255,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(0,245,255,0.06) 0%, transparent 50%);
+  }
+
+  /* Stars background */
+  .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle var(--d, 3s) infinite ease-in-out var(--delay, 0s);
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+
+  .app { position: relative; z-index: 1; max-width: 420px; margin: 0 auto; padding: 12px 16px 100px; }
+
+  /* Header */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0 20px;
+  }
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px; font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 2px;
+  }
+  .level-badge {
+    background: linear-gradient(135deg, var(--accent3), var(--accent2));
+    padding: 4px 12px; border-radius: 20px;
+    font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  /* Currency */
+  .currency-bar {
+    background: var(--card);
+    border: 1px solid rgba(0,245,255,0.15);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .currency-bar::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .currency-main {
+    font-family: 'Orbitron', monospace;
+    font-size: 36px; font-weight: 900;
+    background: linear-gradient(135deg, var(--gold), #ff9500);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    line-height: 1;
+  }
+  .currency-label { color: var(--muted); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+  .per-sec { color: var(--accent); font-size: 13px; font-weight: 500; margin-top: 6px; }
+  .currency-sub { display: flex; gap: 20px; margin-top: 12px; }
+  .sub-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .sub-icon { font-size: 16px; }
+
+  /* Click button */
+  .click-zone {
+    display: flex; flex-direction: column; align-items: center;
+    margin: 10px 0 24px;
+    position: relative;
+  }
+  .planet-wrapper {
+    position: relative;
+    width: 180px; height: 180px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .planet-ring {
+    position: absolute; inset: -20px;
+    border: 1px solid rgba(0,245,255,0.2);
+    border-radius: 50%;
+    animation: spin 8s linear infinite;
+  }
+  .planet-ring::before {
+    content: '◆';
+    position: absolute; top: -6px; left: 50%;
+    transform: translateX(-50%);
+    color: var(--accent); font-size: 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .planet {
+    width: 180px; height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%,
+      #3a1f6e 0%, #1a0a3a 40%, #050515 100%);
+    box-shadow:
+      0 0 40px rgba(123,47,255,0.4),
+      0 0 80px rgba(123,47,255,0.15),
+      inset -20px -20px 40px rgba(0,0,0,0.5),
+      inset 10px 10px 30px rgba(123,47,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 72px;
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .planet::after {
+    content: '';
+    position: absolute;
+    top: 15%; left: 20%;
+    width: 30%; height: 15%;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+    filter: blur(4px);
+  }
+  .planet:active, .planet.clicked {
+    transform: scale(0.92);
+    box-shadow: 0 0 60px rgba(123,47,255,0.7), 0 0 100px rgba(0,245,255,0.3);
+  }
+  .click-power {
+    margin-top: 14px;
+    font-family: 'Orbitron', monospace;
+    font-size: 13px; color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  /* Floating +number */
+  .float-num {
+    position: fixed;
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 22px;
+    color: var(--gold);
+    pointer-events: none;
+    z-index: 999;
+    text-shadow: 0 0 10px rgba(255,215,0,0.8);
+    animation: floatUp 0.8s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-80px) scale(1.3); }
+  }
+
+  /* XP Bar */
+  .xp-section { margin-bottom: 20px; }
+  .xp-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+  .xp-bar {
+    height: 6px; background: rgba(255,255,255,0.05);
+    border-radius: 3px; overflow: hidden;
+  }
+  .xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+    border-radius: 3px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 8px rgba(0,245,255,0.5);
+  }
+
+  /* Upgrades */
+  .section-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px; letter-spacing: 3px; color: var(--muted);
+    text-transform: uppercase; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-title::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, rgba(0,245,255,0.3), transparent);
+  }
+
+  .upgrades-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+
+  .upgrade-card {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 14px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .upgrade-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(0,245,255,0.03), transparent);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .upgrade-card:hover::before, .upgrade-card:active::before { opacity: 1; }
+  .upgrade-card.can-afford {
+    border-color: rgba(0,245,255,0.3);
+    box-shadow: 0 0 15px rgba(0,245,255,0.08);
+  }
+  .upgrade-card.can-afford::before { opacity: 1; }
+  .upgrade-card.maxed {
+    border-color: rgba(255,215,0,0.3);
+    opacity: 0.7; cursor: default;
+  }
+  .upgrade-card:active { transform: scale(0.96); }
+
+  .upgrade-icon { font-size: 28px; margin-bottom: 6px; }
+  .upgrade-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .upgrade-desc { font-size: 11px; color: var(--muted); margin-bottom: 8px; line-height: 1.3; }
+  .upgrade-level {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .lvl-dots { display: flex; gap: 3px; }
+  .lvl-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    transition: background 0.3s;
+  }
+  .lvl-dot.filled { background: var(--accent); box-shadow: 0 0 4px var(--accent); }
+  .upgrade-cost {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px; font-weight: 700;
+    color: var(--gold);
+  }
+  .upgrade-cost.cant { color: var(--muted); }
+
+  /* Auto miners section */
+  .miners-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .miner-card {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 14px 16px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 14px;
+    transition: all 0.2s ease;
+  }
+  .miner-card.can-afford { border-color: rgba(255,0,110,0.3); box-shadow: 0 0 15px rgba(255,0,110,0.07); }
+  .miner-card:active { transform: scale(0.98); }
+  .miner-icon { font-size: 36px; flex-shrink: 0; }
+  .miner-info { flex: 1; }
+  .miner-name { font-size: 15px; font-weight: 700; }
+  .miner-stats { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .miner-owned { font-size: 22px; font-family: 'Orbitron', monospace; font-weight: 900; color: var(--accent3); min-width: 36px; text-align: right; }
+  .miner-cost-wrap { text-align: right; min-width: 70px; }
+  .miner-cost { font-family: 'Orbitron', monospace; font-size: 12px; font-weight: 700; color: var(--gold); }
+  .miner-cost.cant { color: var(--muted); }
+  .buy-btn {
+    background: linear-gradient(135deg, var(--accent2), var(--accent3));
+    border: none; border-radius: 8px;
+    padding: 6px 12px; font-size: 11px; font-weight: 700;
+    color: white; cursor: pointer; margin-top: 4px;
+    font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;
+    transition: opacity 0.2s;
+  }
+  .buy-btn:disabled { opacity: 0.3; cursor: default; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 420px;
+    background: rgba(5,5,16,0.95);
+    border-top: 1px solid rgba(0,245,255,0.1);
+    backdrop-filter: blur(20px);
+    display: flex; z-index: 100;
+    padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  }
+  .nav-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 8px; border: none; background: none; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-btn.active .nav-icon { filter: drop-shadow(0 0 8px var(--accent)); }
+  .nav-icon { font-size: 22px; transition: transform 0.2s; }
+  .nav-btn:active .nav-icon { transform: scale(0.85); }
+  .nav-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; font-weight: 500; text-transform: uppercase; }
+  .nav-btn.active .nav-label { color: var(--accent); }
+
+  /* Tabs */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Stats page */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stat-card {
+    background: var(--card); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px; padding: 16px;
+  }
+  .stat-value { font-family: 'Orbitron', monospace; font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .stat-name { font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+
+  /* Achievements */
+  .achievements-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .achievement {
+    background: var(--card); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px; padding: 14px; text-align: center;
+    opacity: 0.4; transition: all 0.3s;
+  }
+  .achievement.unlocked { opacity: 1; border-color: rgba(255,215,0,0.4); box-shadow: 0 0 15px rgba(255,215,0,0.1); }
+  .ach-icon { font-size: 32px; margin-bottom: 6px; }
+  .ach-name { font-size: 12px; font-weight: 700; }
+  .ach-desc { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* Pulse animation on buy */
+  @keyframes pulse-buy {
+    0% { box-shadow: 0 0 0 0 rgba(0,245,255,0.6); }
+    100% { box-shadow: 0 0 0 20px rgba(0,245,255,0); }
+  }
+  .pulse { animation: pulse-buy 0.4s ease-out; }
+
+  /* Toast */
+  .toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
+    background: linear-gradient(135deg, var(--accent3), var(--accent2));
+    color: white; padding: 10px 20px; border-radius: 30px;
+    font-family: 'Orbitron', monospace; font-size: 12px; font-weight: 700;
+    z-index: 9999; transition: transform 0.3s ease;
+    white-space: nowrap; letter-spacing: 1px;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Energy bar */
+  .energy-bar { margin-bottom: 20px; }
+  .energy-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; color: var(--muted); }
+  .e-bar { height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
+  .e-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--gold));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 8px rgba(255,0,110,0.4);
+  }
+
+  /* Number format */
+  .combo-display {
+    position: absolute; top: -30px; right: 0;
+    font-family: 'Orbitron', monospace; font-size: 11px;
+    color: var(--accent2); letter-spacing: 1px;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .combo-display.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<div class="toast" id="toast"></div>
+
+<div class="app">
+
+  <!-- Tab: Mine (main) -->
+  <div class="tab-content active" id="tab-mine">
+
+    <div class="header">
+      <div class="logo">CRYPTOMINE</div>
+      <div class="level-badge" id="levelBadge">LVL 1</div>
+    </div>
+
+    <div class="currency-bar">
+      <div class="currency-label">⚡ CRYSTALS</div>
+      <div class="currency-main" id="crystals">0</div>
+      <div class="per-sec" id="perSec">+0 / сек</div>
+      <div class="currency-sub">
+        <div class="sub-item"><span class="sub-icon">🖱️</span><span id="clickPower">+1 за клик</span></div>
+        <div class="sub-item"><span class="sub-icon">⛏️</span><span id="totalMiners">0 майнеров</span></div>
+      </div>
+    </div>
+
+    <div class="xp-section">
+      <div class="xp-header">
+        <span>ОПЫТ</span>
+        <span id="xpText">0 / 100</span>
+      </div>
+      <div class="xp-bar"><div class="xp-fill" id="xpFill" style="width:0%"></div></div>
+    </div>
+
+    <div class="energy-bar">
+      <div class="energy-header">
+        <span>⚡ ЭНЕРГИЯ</span>
+        <span id="energyText">100 / 100</span>
+      </div>
+      <div class="e-bar"><div class="e-fill" id="energyFill" style="width:100%"></div></div>
+    </div>
+
+    <!-- Planet click -->
+    <div class="click-zone">
+      <div class="planet-wrapper">
+        <div class="planet-ring"></div>
+        <div class="planet" id="planet" onclick="handleClick(event)">🪐</div>
+      </div>
+      <div class="click-power" id="clickLabel">⚡ ТАП = +1</div>
+    </div>
+
+    <!-- Upgrades -->
+    <div class="section-title">Улучшения</div>
+    <div class="upgrades-grid" id="upgradesGrid"></div>
+
+  </div>
+
+  <!-- Tab: Miners -->
+  <div class="tab-content" id="tab-miners">
+    <div class="header">
+      <div class="logo">МАЙНЕРЫ</div>
+    </div>
+    <div class="currency-bar" style="margin-bottom:20px">
+      <div class="currency-label">⚡ CRYSTALS</div>
+      <div class="currency-main" id="crystals2">0</div>
+      <div class="per-sec" id="perSec2">+0 / сек</div>
+    </div>
+    <div class="section-title">Автоматические добытчики</div>
+    <div class="miners-list" id="minersList"></div>
+  </div>
+
+  <!-- Tab: Stats -->
+  <div class="tab-content" id="tab-stats">
+    <div class="header">
+      <div class="logo">СТАТИСТИКА</div>
+    </div>
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card"><div class="stat-value" id="s-total" style="color:var(--gold)">0</div><div class="stat-name">🏆 ВСЕГО ДОБЫТО</div></div>
+      <div class="stat-card"><div class="stat-value" id="s-clicks" style="color:var(--accent)">0</div><div class="stat-name">🖱️ КЛИКОВ</div></div>
+      <div class="stat-card"><div class="stat-value" id="s-cps" style="color:var(--accent2)">0</div><div class="stat-name">⚡ В СЕКУНДУ</div></div>
+      <div class="stat-card"><div class="stat-value" id="s-level" style="color:var(--accent3)">1</div><div class="stat-name">⭐ УРОВЕНЬ</div></div>
+    </div>
+    <div class="section-title" style="margin-top:24px">Достижения</div>
+    <div class="achievements-list" id="achievementsList"></div>
+  </div>
+
+</div>
+
+<!-- Bottom nav -->
+<div class="bottom-nav">
+  <button class="nav-btn active" onclick="switchTab('mine', this)">
+    <span class="nav-icon">🪐</span>
+    <span class="nav-label">МАЙНИНГ</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('miners', this)">
+    <span class="nav-icon">⛏️</span>
+    <span class="nav-label">МАЙНЕРЫ</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('stats', this)">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">СТАТЫ</span>
+  </button>
+</div>
+
+<script>
+// Init Telegram WebApp
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  tg.setHeaderColor('#050510');
+  tg.setBackgroundColor('#050510');
+}
+
+// ==================== GAME STATE ====================
+let state = loadState() || {
+  crystals: 0,
+  totalEarned: 0,
+  clicks: 0,
+  clickPower: 1,
+  xp: 0,
+  level: 1,
+  energy: 100,
+  maxEnergy: 100,
+  upgrades: { drill: 0, laser: 0, shield: 0, turbo: 0 },
+  miners: { bot: 0, drone: 0, station: 0, satellite: 0 },
+  lastSave: Date.now(),
+  combo: 0,
+  lastClick: 0,
+};
+
+// Offline earnings
+if (state.lastSave) {
+  const dt = Math.min((Date.now() - state.lastSave) / 1000, 3600);
+  const cps = calcCPS();
+  const earned = Math.floor(dt * cps);
+  if (earned > 0) {
+    state.crystals += earned;
+    state.totalEarned += earned;
+    showToast(`⏰ Пока вас не было: +${fmt(earned)} кристаллов`);
+  }
+}
+
+// ==================== DATA ====================
+const UPGRADES = [
+  { id: 'drill', icon: '⛏️', name: 'Дрель', desc: '+2 за клик', cost: [50, 200, 800, 3000], bonus: (lvl) => lvl * 2 },
+  { id: 'laser', icon: '🔴', name: 'Лазер', desc: '+5 за клик', cost: [250, 1000, 5000, 20000], bonus: (lvl) => lvl * 5 },
+  { id: 'shield', icon: '🛡️', name: 'Щит', desc: '+50 макс. энергии', cost: [100, 400, 1500, 6000], bonus: (lvl) => lvl * 50 },
+  { id: 'turbo', icon: '⚡', name: 'Турбо', desc: '×1.5 за клик', cost: [500, 2500, 12000, 60000], bonus: (lvl) => Math.pow(1.5, lvl) },
+];
+
+const MINERS = [
+  { id: 'bot', icon: '🤖', name: 'Нано-бот', desc: 'Маленький, но шустрый', cps: 0.5, baseCost: 100, costMult: 1.15 },
+  { id: 'drone', icon: '🚁', name: 'Дрон', desc: 'Летает, добывает', cps: 3, baseCost: 750, costMult: 1.18 },
+  { id: 'station', icon: '🏭', name: 'Станция', desc: 'Серьёзное производство', cps: 15, baseCost: 5000, costMult: 1.2 },
+  { id: 'satellite', icon: '🛸', name: 'Спутник', desc: 'Орбитальный майнер', cps: 80, baseCost: 40000, costMult: 1.25 },
+];
+
+const ACHIEVEMENTS = [
+  { id: 'first', icon: '🥇', name: 'Первый!', desc: 'Первый клик', check: () => state.clicks >= 1 },
+  { id: 'clicker100', icon: '👆', name: 'Кликер', desc: '100 кликов', check: () => state.clicks >= 100 },
+  { id: 'earn1k', icon: '💎', name: 'Тысячник', desc: '1,000 кристаллов', check: () => state.totalEarned >= 1000 },
+  { id: 'earn100k', icon: '💰', name: 'Богач', desc: '100,000 кристаллов', check: () => state.totalEarned >= 100000 },
+  { id: 'miners5', icon: '⛏️', name: 'Бригадир', desc: '5 майнеров', check: () => totalMiners() >= 5 },
+  { id: 'lvl5', icon: '⭐', name: 'Ветеран', desc: 'Достигни 5 уровня', check: () => state.level >= 5 },
+  { id: '1m', icon: '🏆', name: 'Миллионер', desc: '1,000,000 кристаллов', check: () => state.totalEarned >= 1000000 },
+  { id: 'combo', icon: '🔥', name: 'Комбо!', desc: 'Комбо x10', check: () => state.combo >= 10 },
+];
+let unlockedAch = new Set(state.unlockedAch || []);
+
+// ==================== CALC ====================
+function calcClickPower() {
+  let base = 1;
+  base += UPGRADES[0].bonus(state.upgrades.drill || 0);
+  base += UPGRADES[1].bonus(state.upgrades.laser || 0);
+  base *= UPGRADES[3].bonus(state.upgrades.turbo || 0);
+  base *= (1 + (state.combo || 0) * 0.1);
+  return Math.ceil(base);
+}
+
+function calcCPS() {
+  let cps = 0;
+  MINERS.forEach(m => { cps += m.cps * (state.miners[m.id] || 0); });
+  return cps;
+}
+
+function calcMaxEnergy() {
+  return 100 + UPGRADES[2].bonus(state.upgrades.shield || 0);
+}
+
+function totalMiners() {
+  return Object.values(state.miners).reduce((a, b) => a + b, 0);
+}
+
+function minerCost(m) {
+  const owned = state.miners[m.id] || 0;
+  return Math.ceil(m.baseCost * Math.pow(m.costMult, owned));
+}
+
+function xpForLevel(lvl) { return Math.floor(100 * Math.pow(1.8, lvl - 1)); }
+
+// ==================== RENDER ====================
+function fmt(n) {
+  if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return Math.floor(n).toString();
+}
+
+function renderAll() {
+  const crystals = Math.floor(state.crystals);
+  const cps = calcCPS();
+  const cp = calcClickPower();
+  const maxE = calcMaxEnergy();
+
+  // Tab mine
+  document.getElementById('crystals').textContent = fmt(crystals);
+  document.getElementById('crystals2').textContent = fmt(crystals);
+  document.getElementById('perSec').textContent = `+${fmt(cps)} / сек`;
+  document.getElementById('perSec2').textContent = `+${fmt(cps)} / сек`;
+  document.getElementById('clickLabel').textContent = `⚡ ТАП = +${fmt(cp)}`;
+  document.getElementById('clickPower').textContent = `+${fmt(cp)} за клик`;
+  document.getElementById('totalMiners').textContent = `${totalMiners()} майнеров`;
+  document.getElementById('levelBadge').textContent = `LVL ${state.level}`;
+
+  // XP
+  const xpNeeded = xpForLevel(state.level);
+  document.getElementById('xpText').textContent = `${Math.floor(state.xp)} / ${xpNeeded}`;
+  document.getElementById('xpFill').style.width = Math.min(100, (state.xp / xpNeeded) * 100) + '%';
+
+  // Energy
+  document.getElementById('energyText').textContent = `${Math.floor(state.energy)} / ${maxE}`;
+  document.getElementById('energyFill').style.width = (state.energy / maxE * 100) + '%';
+
+  // Upgrades
+  renderUpgrades();
+  renderMiners();
+
+  // Stats
+  document.getElementById('s-total').textContent = fmt(state.totalEarned);
+  document.getElementById('s-clicks').textContent = fmt(state.clicks);
+  document.getElementById('s-cps').textContent = fmt(cps);
+  document.getElementById('s-level').textContent = state.level;
+
+  renderAchievements();
+}
+
+function renderUpgrades() {
+  const grid = document.getElementById('upgradesGrid');
+  grid.innerHTML = '';
+  UPGRADES.forEach(u => {
+    const lvl = state.upgrades[u.id] || 0;
+    const maxLvl = u.cost.length;
+    const isMax = lvl >= maxLvl;
+    const cost = isMax ? null : u.cost[lvl];
+    const canAfford = !isMax && state.crystals >= cost;
+    const card = document.createElement('div');
+    card.className = 'upgrade-card' + (canAfford ? ' can-afford' : '') + (isMax ? ' maxed' : '');
+    const dots = Array(maxLvl).fill(0).map((_, i) => `<div class="lvl-dot ${i < lvl ? 'filled' : ''}"></div>`).join('');
+    card.innerHTML = `
+      <div class="upgrade-icon">${u.icon}</div>
+      <div class="upgrade-name">${u.name}</div>
+      <div class="upgrade-desc">${u.desc}</div>
+      <div class="upgrade-level">
+        <div class="lvl-dots">${dots}</div>
+        <div class="upgrade-cost ${canAfford ? '' : 'cant'}">${isMax ? '✅' : '💎' + fmt(cost)}</div>
+      </div>`;
+    if (!isMax) card.onclick = () => buyUpgrade(u.id);
+    grid.appendChild(card);
+  });
+}
+
+function renderMiners() {
+  const list = document.getElementById('minersList');
+  list.innerHTML = '';
+  MINERS.forEach(m => {
+    const owned = state.miners[m.id] || 0;
+    const cost = minerCost(m);
+    const canAfford = state.crystals >= cost;
+    const card = document.createElement('div');
+    card.className = 'miner-card' + (canAfford ? ' can-afford' : '');
+    card.innerHTML = `
+      <div class="miner-icon">${m.icon}</div>
+      <div class="miner-info">
+        <div class="miner-name">${m.name}</div>
+        <div class="miner-stats">+${m.cps}/сек каждый · ${m.desc}</div>
+      </div>
+      <div class="miner-cost-wrap">
+        <div class="miner-cost ${canAfford ? '' : 'cant'}">💎 ${fmt(cost)}</div>
+        <button class="buy-btn" ${canAfford ? '' : 'disabled'} onclick="buyMiner('${m.id}')">КУПИТЬ</button>
+      </div>
+      <div class="miner-owned">${owned}</div>`;
+    list.appendChild(card);
+  });
+}
+
+function renderAchievements() {
+  const list = document.getElementById('achievementsList');
+  list.innerHTML = '';
+  ACHIEVEMENTS.forEach(a => {
+    const unlocked = unlockedAch.has(a.id);
+    const div = document.createElement('div');
+    div.className = 'achievement' + (unlocked ? ' unlocked' : '');
+    div.innerHTML = `<div class="ach-icon">${unlocked ? a.icon : '🔒'}</div><div class="ach-name">${a.name}</div><div class="ach-desc">${a.desc}</div>`;
+    list.appendChild(div);
+  });
+}
+
+// ==================== ACTIONS ====================
+function handleClick(e) {
+  const maxE = calcMaxEnergy();
+  if (state.energy <= 0) { showToast('⚡ Нет энергии! Подождите...'); return; }
+
+  // Combo
+  const now = Date.now();
+  if (now - state.lastClick < 600) {
+    state.combo = Math.min((state.combo || 0) + 1, 50);
+  } else {
+    state.combo = 0;
+  }
+  state.lastClick = now;
+
+  const cp = calcClickPower();
+  state.crystals += cp;
+  state.totalEarned += cp;
+  state.clicks++;
+  state.xp += 1 + Math.floor(cp / 10);
+  state.energy = Math.max(0, state.energy - 1);
+
+  // Level up
+  const xpNeeded = xpForLevel(state.level);
+  if (state.xp >= xpNeeded) {
+    state.xp -= xpNeeded;
+    state.level++;
+    showToast(`🎉 Уровень ${state.level}! Новые возможности!`);
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  }
+
+  // Planet click animation
+  const planet = document.getElementById('planet');
+  planet.classList.add('clicked');
+  setTimeout(() => planet.classList.remove('clicked'), 120);
+
+  // Float number
+  spawnFloat(e, cp);
+
+  // Haptic
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+  checkAchievements();
+  renderAll();
+}
+
+function spawnFloat(e, amount) {
+  const el = document.createElement('div');
+  el.className = 'float-num';
+  const x = e.clientX - 20 + (Math.random() - 0.5) * 40;
+  const y = e.clientY - 20;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.textContent = state.combo >= 5 ? `🔥+${fmt(amount)}` : `+${fmt(amount)}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 820);
+}
+
+function buyUpgrade(id) {
+  const u = UPGRADES.find(x => x.id === id);
+  const lvl = state.upgrades[id] || 0;
+  if (lvl >= u.cost.length) return;
+  const cost = u.cost[lvl];
+  if (state.crystals < cost) { showToast('💸 Недостаточно кристаллов!'); return; }
+  state.crystals -= cost;
+  state.upgrades[id] = lvl + 1;
+  showToast(`✅ ${u.name} улучшен до уровня ${lvl + 1}!`);
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  checkAchievements();
+  renderAll();
+}
+
+function buyMiner(id) {
+  const m = MINERS.find(x => x.id === id);
+  const cost = minerCost(m);
+  if (state.crystals < cost) { showToast('💸 Недостаточно кристаллов!'); return; }
+  state.crystals -= cost;
+  state.miners[id] = (state.miners[id] || 0) + 1;
+  showToast(`⛏️ ${m.name} куплен! Всего: ${state.miners[id]}`);
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+  checkAchievements();
+  renderAll();
+}
+
+// ==================== ACHIEVEMENTS ====================
+function checkAchievements() {
+  ACHIEVEMENTS.forEach(a => {
+    if (!unlockedAch.has(a.id) && a.check()) {
+      unlockedAch.add(a.id);
+      showToast(`🏆 Достижение: ${a.name}!`);
+    }
+  });
+  state.unlockedAch = [...unlockedAch];
+}
+
+// ==================== GAME LOOP ====================
+let lastTick = Date.now();
+function gameTick() {
+  const now = Date.now();
+  const dt = (now - lastTick) / 1000;
+  lastTick = now;
+
+  const cps = calcCPS();
+  if (cps > 0) {
+    state.crystals += cps * dt;
+    state.totalEarned += cps * dt;
+    state.xp += cps * dt * 0.1;
+  }
+
+  // Energy regen
+  const maxE = calcMaxEnergy();
+  state.maxEnergy = maxE;
+  if (state.energy < maxE) {
+    state.energy = Math.min(maxE, state.energy + dt * 5);
+  }
+
+  // Level up from auto
+  const xpNeeded = xpForLevel(state.level);
+  if (state.xp >= xpNeeded) {
+    state.xp -= xpNeeded;
+    state.level++;
+    showToast(`🎉 Уровень ${state.level}!`);
+  }
+
+  checkAchievements();
+  renderAll();
+}
+
+setInterval(gameTick, 200);
+
+// Auto-save
+setInterval(() => {
+  state.lastSave = Date.now();
+  saveState();
+}, 5000);
+
+// ==================== UI ====================
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ==================== STORAGE ====================
+function saveState() {
+  try { localStorage.setItem('cryptomine_v2', JSON.stringify(state)); } catch(e){}
+}
+function loadState() {
+  try {
+    const s = localStorage.getItem('cryptomine_v2');
+    return s ? JSON.parse(s) : null;
+  } catch(e) { return null; }
+}
+
+// ==================== STARS ====================
+function createStars() {
+  const container = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2 + 0.5;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%;
+      top:${Math.random()*100}%;
+      --d:${2+Math.random()*4}s;
+      --delay:-${Math.random()*4}s;
+    `;
+    container.appendChild(s);
+  }
+}
+createStars();
+
+// Initial render
+renderAll();
+</script>
+</body>
+</html>
