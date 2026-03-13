@@ -11,7 +11,7 @@ function freshState(){
     day:1,hour:6,minute:0,month:1,year:2450,era:'Заря',
     sys:'sol',gal:'alpha',
     upgrades:{},researched:{},skills:{},
-    equip:{hull:'hull_scout',engine:'eng_basic',weapon:'wpn_laser',shield:'shld_basic'},
+    equip:{hull:'hull_swift_m',engine:'eng_ecodrive1',weapon:'wpn_beam1',defense:'def_shield_a1'},
     owned_equip:[],
     helpers:{},rangers:{},
     cargo:{},cargoCost:{}, // weighted avg buy price per good
@@ -63,6 +63,19 @@ function loadG(){
 // ── Init ──
 G = loadG()||freshState();
 // migrate missing fields
+// Update old equip IDs to new catalog IDs
+if(G.equip){
+  const idMap={'hull_scout':'hull_swift_m','hull_fighter':'hull_fighter_mk2','hull_cruiser':'hull_cruiser_r',
+    'hull_carrier':'hull_carrier','hull_dread':'hull_dread','eng_basic':'eng_ecodrive1',
+    'eng_turbo':'eng_razor','eng_ion':'eng_vector_core','eng_quantum':'eng_quantum_leap',
+    'wpn_laser':'wpn_beam1','wpn_plasma':'wpn_plasma_s','wpn_ion':'wpn_ion_storm','wpn_dark':'wpn_dark_matter',
+    'shld_basic':'def_shield_a1','shld_reflect':'def_mirage','shld_heavy':'def_reactive','shld_void':'def_nullfield'};
+  Object.keys(G.equip).forEach(slot=>{
+    if(idMap[G.equip[slot]]) G.equip[slot]=idMap[G.equip[slot]];
+  });
+  // rename 'shield' slot to 'defense'
+  if(G.equip.shield&&!G.equip.defense){ G.equip.defense=G.equip.shield; delete G.equip.shield; }
+}
 if(!G.month)      G.month=1;
 if(!G.year)       G.year=2450;
 if(!G.cargoCost)  G.cargoCost={};
@@ -96,11 +109,14 @@ if(G.alienInvasion){
 
 // ── Calculations ──
 function getEquipStats(){
-  const stats={atk:0,def:0,reflect:0,fuelMod:0,cargo:0,maxHull:0};
-  ['hull','engine','weapon','shield'].forEach(cat=>{
-    const eq=EQUIPMENT.find(e=>e.id===G.equip[cat]);
+  const stats={atk:0,def:0,reflect:0,fuelMod:0,cargo:0,maxHull:0,dodge:0,sciMod:0,tradeMod:0,mineMod:0,repMod:0};
+  // Search across all equipped slots in full catalog
+  const catalog=typeof EQUIPMENT_CATALOG!=='undefined'?EQUIPMENT_CATALOG:EQUIPMENT;
+  Object.values(G.equip||{}).forEach(itemId=>{
+    if(!itemId) return;
+    const eq=catalog.find(e=>e.id===itemId);
     if(!eq) return;
-    Object.entries(eq.stats||{}).forEach(([k,v])=>{ stats[k]=(stats[k]||0)+v; });
+    Object.entries(eq.stats||{}).forEach(([k,v])=>{ if(typeof v==='number') stats[k]=(stats[k]||0)+v; });
   });
   return stats;
 }

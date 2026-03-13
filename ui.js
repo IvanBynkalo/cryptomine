@@ -472,27 +472,9 @@ function renderSkillsHTML(){
 
 // ── Market HTML ──
 function renderMarketHTML(){
-  const cats=['hull','engine','weapon','shield'];
-  const catN={hull:'🚀 Корпус',engine:'⚡ Двиг.',weapon:'🔫 Оружие',shield:'🛡 Щит'};
-  let h=`<div style="display:flex;gap:5px;margin-bottom:10px;overflow-x:auto">`;
-  cats.forEach(c=>{h+=`<button class="tc-btn mc-btn${c===marketCat?' on':''}" onclick="setMarketCat('${c}',this)">${catN[c]}</button>`;});
-  h+=`</div><div class="g2">`;
-  EQUIPMENT.filter(e=>e.cat===marketCat).forEach(eq=>{
-    const owned=G.owned_equip.includes(eq.id)||eq.cost===0;
-    const equipped=G.equip[eq.cat]===eq.id;
-    const tc=['','eq-t1','eq-t2','eq-t3','eq-t4','eq-t5'][eq.tier];
-    const tn=['','Обычный','Редкий','Необычный','Эпический','Легендарный'][eq.tier];
-    h+=`<div class="equip-card${equipped?' equipped':''}">
-      <div class="${tc}" style="font-size:9px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">${tn}${equipped?' ✅':''}</div>
-      <div style="font-size:26px;margin-bottom:4px">${eq.icon}</div>
-      <div style="font-size:12px;font-weight:700;margin-bottom:4px">${eq.name}</div>
-      <div style="font-size:9px;color:var(--muted2);margin-bottom:6px">${eq.desc}</div>
-      ${equipped?`<div style="font-size:10px;color:var(--green)">Установлено</div>`:
-        owned?`<button class="btn btn-sm btn-g btn-full" onclick="equipItem('${eq.id}')">Установить</button>`:
-        `<button class="btn btn-sm btn-gold btn-full" onclick="buyEquip('${eq.id}')" ${G.cr>=eq.cost?'':'disabled'}>💰${fmt(eq.cost)}</button>`}
-    </div>`;
-  });
-  h+=`</div>`;return h;
+  // Перенаправляем на новый каталог техники
+  catalogFilter=marketCat==='shield'?'defense':marketCat;
+  return renderCatalogHTML();
 }
 
 // ── Rangers HTML ──

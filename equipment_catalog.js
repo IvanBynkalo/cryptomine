@@ -450,3 +450,7 @@ function getEquipLockReason(item, G){
   if(item.bossKillRequired) reasons.push(`Боссы: ${item.bossKillRequired}`);
   return reasons.join(' · ');
 }
+
+// Обратная совместимость — EQUIPMENT теперь указывает на полный каталог
+var EQUIPMENT = EQUIPMENT_CATALOG;
+

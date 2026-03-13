@@ -185,25 +185,17 @@ const SKILLS_DEF=[
   {id:'engineering',icon:'🔧',name:'Инженерия',   desc:'Рег.энергии и ремонт',perLvl:'+5%'},
 ];
 
-const EQUIPMENT=[
-  {id:'hull_scout',  cat:'hull',  icon:'🚀',name:'Скаут',      tier:1,stats:{maxHull:80, cargo:15},         cost:0,      desc:'Лёгкий корпус'},
-  {id:'hull_fighter',cat:'hull',  icon:'🛸',name:'Истребитель',tier:2,stats:{maxHull:150,cargo:20,atk:5},   cost:5000,   desc:'Боевой корпус'},
-  {id:'hull_cruiser',cat:'hull',  icon:'🚢',name:'Крейсер',    tier:3,stats:{maxHull:300,cargo:35,atk:10},  cost:25000,  desc:'Тяжёлый крейсер'},
-  {id:'hull_carrier',cat:'hull',  icon:'🛡️',name:'Авианосец', tier:4,stats:{maxHull:600,cargo:60,def:20},  cost:100000, desc:'Флагман'},
-  {id:'hull_dread',  cat:'hull',  icon:'💀',name:'Дредноут',   tier:5,stats:{maxHull:1200,cargo:80,atk:30,def:20},cost:500000,desc:'Уничтожитель'},
-  {id:'eng_basic',   cat:'engine',icon:'🔥',name:'Базовый',    tier:1,stats:{fuelMod:0},    cost:0,      desc:'Стандарт'},
-  {id:'eng_turbo',   cat:'engine',icon:'⚡',name:'Турбо',      tier:2,stats:{fuelMod:-.25}, cost:3000,   desc:'-25% топлива'},
-  {id:'eng_ion',     cat:'engine',icon:'🌀',name:'Ионный',     tier:3,stats:{fuelMod:-.45}, cost:15000,  desc:'-45% топлива'},
-  {id:'eng_quantum', cat:'engine',icon:'✨',name:'Квантовый',  tier:4,stats:{fuelMod:-.7},  cost:80000,  desc:'-70% топлива'},
-  {id:'wpn_laser',   cat:'weapon',icon:'🔴',name:'Лазер',      tier:1,stats:{atk:5},        cost:0,      desc:'+5 урона'},
-  {id:'wpn_plasma',  cat:'weapon',icon:'🌀',name:'Плазмаган',  tier:2,stats:{atk:15},       cost:4000,   desc:'+15 урона'},
-  {id:'wpn_ion',     cat:'weapon',icon:'⚡',name:'Ион-пушка',  tier:3,stats:{atk:35},       cost:20000,  desc:'+35 урона'},
-  {id:'wpn_dark',    cat:'weapon',icon:'🖤',name:'Тёмная материя',tier:4,stats:{atk:80},    cost:100000, desc:'+80 урона'},
-  {id:'shld_basic',  cat:'shield',icon:'🔵',name:'Базовый',    tier:1,stats:{def:0},        cost:0,      desc:'Нет бонуса'},
-  {id:'shld_reflect',cat:'shield',icon:'🪞',name:'Зеркальный', tier:2,stats:{def:8,reflect:.15},cost:6000,desc:'+15% отражение'},
-  {id:'shld_heavy',  cat:'shield',icon:'🛡️',name:'Тяжёлый',   tier:3,stats:{def:20,maxHull:50},cost:30000,desc:'+50 ХП, +20 защиты'},
-  {id:'shld_void',   cat:'shield',icon:'🌑',name:'Пустотный',  tier:4,stats:{def:40,reflect:.3},cost:150000,desc:'+30% отражение, +40 защиты'},
+// EQUIPMENT — алиас к EQUIPMENT_CATALOG (определён в equipment_catalog.js)
+// Используется в getEquipStats() и старом коде. Будет доступен после загрузки каталога.
+// Для обратной совместимости — базовые стартовые айтемы дублируются здесь как fallback
+const EQUIPMENT_LEGACY=[
+  {id:'hull_scout',  cat:'hull',  icon:'🚀',name:'Скаут',      tier:1,stats:{maxHull:80, cargo:15},         cost:0,   price:0,   desc:'Лёгкий корпус'},
+  {id:'eng_basic',   cat:'engine',icon:'🔥',name:'Базовый двиг.',tier:1,stats:{fuelMod:0},    cost:0,   price:0,   desc:'Стандарт'},
+  {id:'wpn_laser',   cat:'weapon',icon:'🔴',name:'Лазер',      tier:1,stats:{atk:5},        cost:0,   price:0,   desc:'+5 урона'},
+  {id:'shld_basic',  cat:'shield',icon:'🔵',name:'Базовый щит', tier:1,stats:{def:0},        cost:0,   price:0,   desc:'Нет бонуса'},
 ];
+// EQUIPMENT будет переопределён после загрузки equipment_catalog.js
+var EQUIPMENT = EQUIPMENT_LEGACY;
 
 const RANGER_BOTS=[
   {id:'trader',  icon:'🤝',name:'Бот-торговец', desc:'Колеблет цены каждые 30с',      cost:10000},
