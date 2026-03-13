@@ -312,6 +312,8 @@ function renderMoreTab(){
   else if(moreTab==='land')    { scr.innerHTML=renderLandHTML(); }
   else if(moreTab==='story')   { scr.innerHTML=renderStoryHTML(); }
   else if(moreTab==='events')  { scr.innerHTML=renderEventsHTML(); }
+  else if(moreTab==='hangar')  { scr.innerHTML=renderHangarHTML(); }
+  else if(moreTab==='catalog') { scr.innerHTML=renderCatalogHTML(); }
   document.getElementById('mo-cred').textContent=fmt(G.cr);
   document.getElementById('mo-rp').textContent=fmt(Math.floor(G.rp));
   document.getElementById('mo-hull').textContent=Math.floor(G.hull/G.maxHull*100)+'%';
@@ -950,3 +952,206 @@ initPrices();
 _uiReady = true;
 if(!G.playerName) showNameScreen();
 else { updateHUD(); renderMine(); refreshQuests(); }
+
+// ════════════════════════════════════
+//  АНГАР — текущее снаряжение + слоты
+// ════════════════════════════════════
+let hangarCompareSlot=null;
+function renderHangarHTML(){
+  const hull=HULLS_CATALOG.find(h=>h.id===G.equip.hull)||HULLS_CATALOG[0];
+  const slots=hull?.stats?.slots||{wpn:2,def:1,eng:1,spec:2,sup:1};
+  const eq=getEquipStats();
+  let h=`<div class="sh">🚀 Ангар — ${hull?.name||'Без корпуса'}</div>`;
+  // Ship summary card
+  h+=`<div class="card" style="border-color:${RARITY_COLOR[hull?.rarity||'common']}55;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="font-size:42px">${hull?.icon||'🚀'}</div>
+      <div>
+        <div style="font-size:14px;font-weight:700">${hull?.name}</div>
+        <div style="font-size:10px;color:${RARITY_COLOR[hull?.rarity||'common']}">${hull?.rarity?.toUpperCase()||'COMMON'} · T${hull?.tier||1} · ${hull?.mfr||'—'}</div>
+        <div style="font-size:10px;color:var(--muted2)">${hull?.role||''} · ${hull?.desc||''}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11px">
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">⚔️ Атака</div><div style="font-family:var(--mono);color:var(--gold)">${calcAttack()}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">🛡️ Защита</div><div style="font-family:var(--mono);color:var(--cyan)">${calcDefense()}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">❤️ ХП</div><div style="font-family:var(--mono);color:var(--green)">${calcMaxHull()}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">📦 Трюм</div><div style="font-family:var(--mono);color:var(--amber)">${calcCargoMax()}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">⚡ Топл.</div><div style="font-family:var(--mono);color:var(--purple)">${G.maxFuel}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">🏃 Уклон</div><div style="font-family:var(--mono);color:var(--cyan)">${Math.round((eq.dodge||0)*100)}%</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Slots
+  const slotDefs=[
+    {key:'hull',  label:'Корпус',    cat:'hull',    icon:'🚀'},
+    {key:'weapon',label:'Оружие 1',  cat:'weapon',  icon:'⚔️'},
+    {key:'defense',label:'Защита',   cat:'defense', icon:'🛡️'},
+    {key:'engine',label:'Двигатель', cat:'engine',  icon:'🔥'},
+    {key:'specmod1',label:'Спецмод 1',cat:'specmod',icon:'🔬'},
+    {key:'support',label:'Поддержка',cat:'support', icon:'🤖'},
+  ];
+  h+=`<div class="sh">Слоты</div>`;
+  slotDefs.forEach(sl=>{
+    const installedId=G.equip[sl.key]||G.equip[sl.key.replace(/\d/,'')];
+    // search in full catalog
+    const installed=EQUIPMENT_CATALOG.find(e=>e.id===installedId);
+    const rarColor=installed?RARITY_COLOR[installed.rarity||'common']:'#333';
+    h+=`<div class="card" style="display:flex;align-items:center;gap:10px;border-color:${rarColor}44;margin-bottom:6px"
+        onclick="setMoreTab('catalog',null);catalogFilter='${sl.cat}';renderMoreTab()">
+      <div style="font-size:24px">${installed?.icon||sl.icon}</div>
+      <div style="flex:1">
+        <div style="font-size:10px;color:var(--muted2)">${sl.label}</div>
+        <div style="font-size:12px;font-weight:700;color:${rarColor}">${installed?.name||'— Пусто —'}</div>
+        ${installed?`<div style="font-size:9px;color:var(--muted2)">${installed.rarity?.toUpperCase()} · T${installed.tier}</div>`:''}
+      </div>
+      <div style="font-size:10px;color:var(--cyan)">Сменить ›</div>
+    </div>`;
+  });
+
+  // Maintenance cost
+  const installedItems=Object.values(G.equip).map(id=>EQUIPMENT_CATALOG.find(e=>e.id===id)).filter(Boolean);
+  const totalUpkeep=installedItems.reduce((s,e)=>s+(e.upkeep||0),0);
+  if(totalUpkeep>0){
+    h+=`<div style="font-size:11px;color:var(--muted2);padding:8px;background:rgba(0,0,0,.2);border-radius:6px;margin-top:6px">
+      ⚙️ Обслуживание: <span style="color:var(--gold)">${fmt(totalUpkeep)} кр/день</span>
+    </div>`;
+  }
+  return h;
+}
+
+// ════════════════════════════════════
+//  КАТАЛОГ — весь ассортимент с фильтрами
+// ════════════════════════════════════
+let catalogFilter='hull';
+let catalogTier=0; // 0=all
+let catalogAvailOnly=false;
+let catalogSearch='';
+let catalogCompareId=null;
+
+function renderCatalogHTML(){
+  const cats=[
+    {id:'hull',   label:'Корпуса',     icon:'🚀', count:HULLS_CATALOG.length},
+    {id:'weapon', label:'Оружие',      icon:'⚔️', count:WEAPONS_CATALOG.length},
+    {id:'defense',label:'Защита',      icon:'🛡️', count:SHIELDS_CATALOG.length},
+    {id:'engine', label:'Двигатели',   icon:'🔥', count:ENGINES_CATALOG.length},
+    {id:'specmod',label:'Спецмодули',  icon:'🔬', count:SPECMODS_CATALOG.length},
+    {id:'support',label:'Дроны',       icon:'🤖', count:DRONES_CATALOG.length},
+  ];
+
+  let h=`<div class="sh">📋 Каталог техники (${EQUIPMENT_CATALOG.length} ед.)</div>`;
+
+  // Category tabs
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">`;
+  cats.forEach(c=>{
+    const on=catalogFilter===c.id;
+    h+=`<button class="btn btn-sm ${on?'btn-c':''}" style="font-size:10px" onclick="catalogFilter='${c.id}';renderMoreTab()">
+      ${c.icon} ${c.label} <span style="opacity:.6">${c.count}</span>
+    </button>`;
+  });
+  h+=`</div>`;
+
+  // Tier filter
+  h+=`<div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+    ${[0,1,2,3,4,5,6].map(t=>`<button class="btn btn-sm ${catalogTier===t?'btn-c':''}" style="font-size:10px;min-width:36px"
+      onclick="catalogTier=${t};renderMoreTab()">${t===0?'Все':'T'+t}</button>`).join('')}
+    <button class="btn btn-sm ${catalogAvailOnly?'btn-g':''}" style="font-size:10px;margin-left:auto"
+      onclick="catalogAvailOnly=!catalogAvailOnly;renderMoreTab()">✅ Только доступные</button>
+  </div>`;
+
+  // Items list
+  let items=EQUIPMENT_CATALOG.filter(e=>e.cat===catalogFilter);
+  if(catalogTier>0) items=items.filter(e=>e.tier===catalogTier);
+  if(catalogAvailOnly) items=items.filter(e=>getEquipUnlocked(e,G));
+  if(catalogSearch) items=items.filter(e=>e.name.toLowerCase().includes(catalogSearch));
+
+  const installed=G.equip;
+  h+=`<div style="font-size:10px;color:var(--muted2);margin-bottom:6px">${items.length} предметов</div>`;
+
+  items.forEach(item=>{
+    const unlocked=getEquipUnlocked(item,G);
+    const lockReason=unlocked?'':getEquipLockReason(item,G);
+    const rarColor=RARITY_COLOR[item.rarity||'common'];
+    const isEquipped=Object.values(G.equip).includes(item.id);
+    const isOwned=G.owned_equip?.includes(item.id)||isEquipped;
+
+    // Comparison delta if comparing
+    let compareBlock='';
+    if(catalogCompareId&&catalogCompareId!==item.id){
+      const base=EQUIPMENT_CATALOG.find(e=>e.id===catalogCompareId);
+      if(base&&base.cat===item.cat){
+        const dAtk=(item.stats?.atk||0)-(base.stats?.atk||0);
+        const dDef=(item.stats?.def||0)-(base.stats?.def||0);
+        const dHull=(item.stats?.maxHull||0)-(base.stats?.maxHull||0);
+        const dCargo=(item.stats?.cargo||0)-(base.stats?.cargo||0);
+        const statParts=[];
+        if(dAtk) statParts.push(`<span style="color:${dAtk>0?'var(--green)':'var(--red)'}">Урон ${dAtk>0?'+':''}${dAtk}</span>`);
+        if(dDef) statParts.push(`<span style="color:${dDef>0?'var(--green)':'var(--red)'}">Броня ${dDef>0?'+':''}${dDef}</span>`);
+        if(dHull) statParts.push(`<span style="color:${dHull>0?'var(--green)':'var(--red)'}">ХП ${dHull>0?'+':''}${dHull}</span>`);
+        if(dCargo) statParts.push(`<span style="color:${dCargo>0?'var(--green)':'var(--red)'}">Трюм ${dCargo>0?'+':''}${dCargo}</span>`);
+        if(statParts.length) compareBlock=`<div style="font-size:9px;margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">${statParts.join('')}</div>`;
+      }
+    }
+
+    h+=`<div class="card" style="margin-bottom:6px;opacity:${unlocked?1:.6};
+      border-color:${isEquipped?'var(--green)':rarColor}44;
+      ${isEquipped?'background:rgba(0,255,136,.04)':''}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:26px;filter:${unlocked?'none':'grayscale(1)'}">${item.icon||'📦'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;font-weight:700">${item.name}</span>
+            <span style="font-size:9px;color:${rarColor};text-transform:uppercase">${item.rarity}</span>
+            <span style="font-size:9px;color:var(--muted2)">T${item.tier}</span>
+            ${isEquipped?'<span style="font-size:9px;color:var(--green)">✅ Установлено</span>':''}
+          </div>
+          <div style="font-size:9px;color:var(--muted2)">${MANUFACTURERS[item.mfr]?.icon||'⚙️'} ${item.mfr||''} · ${item.role||item.subcat}</div>
+          <div style="font-size:10px;color:var(--muted2);margin-top:2px">${item.desc}</div>
+          ${unlocked?'':'<div style="font-size:9px;color:var(--red);margin-top:2px">🔒 '+lockReason+'</div>'}
+          <div style="font-size:9px;color:var(--muted2);margin-top:2px">
+            ${Object.entries(item.stats||{}).filter(([k])=>!['slots'].includes(k)).slice(0,4).map(([k,v])=>`${k}:${typeof v==='number'?Math.round(v*100)/100:v}`).join(' · ')}
+          </div>
+          ${compareBlock}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          <div style="font-family:var(--mono);font-size:12px;color:var(--gold)">${item.price?fmt(item.price)+' кр':'Старт'}</div>
+          ${unlocked&&!isEquipped?`<button class="btn btn-sm btn-c" style="font-size:9px" onclick="equipCatalogItem('${item.id}')">Надеть</button>`:''}
+          ${!isEquipped?`<button class="btn btn-sm" style="font-size:9px;border-color:var(--b2);color:var(--cyan)"
+            onclick="catalogCompareId='${item.id}';renderMoreTab()">Сравнить</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
+function equipCatalogItem(itemId){
+  const item=EQUIPMENT_CATALOG.find(e=>e.id===itemId);
+  if(!item) return;
+  if(!getEquipUnlocked(item,G)){toast('🔒 Заблокировано: '+getEquipLockReason(item,G),'bad');return;}
+  if(item.price>0&&!G.owned_equip?.includes(itemId)){
+    if(G.cr<item.price){toast(`💸 Нужно ${fmt(item.price)} кр`,'bad');return;}
+    G.cr-=item.price;
+    if(!G.owned_equip) G.owned_equip=[];
+    G.owned_equip.push(itemId);
+  }
+  // Determine slot
+  const slotMap={hull:'hull',weapon:'weapon',defense:'defense',engine:'engine',specmod:'specmod1',support:'support'};
+  const slot=slotMap[item.cat];
+  if(slot) G.equip[slot]=itemId;
+  G.maxHull=calcMaxHull();
+  toast(`✅ ${item.name} установлен!`,'good');hapticN('success');
+  renderMoreTab();updateHUD();
+}
