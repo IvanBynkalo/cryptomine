@@ -239,7 +239,6 @@ function doFly(){
     afterArrive(sys); closePanel(); return;
   }
   G.fuel=Math.max(0,G.fuel-fc);
-  addClassXP('travel', Math.max(4, Math.round(fc/4))); addInfluence(sys.gal,2);
   traveling=true; travelProg=0;
   document.getElementById('fly-btn').disabled=true;
   document.getElementById('tv-bar').classList.add('show');
@@ -257,11 +256,18 @@ function doFly(){
 }
 
 function afterArrive(sys){
-  updateHUD(); spawnDebris(); refreshQuests(); checkQuestProgress(); policeCheck();
+  updateHUD(); spawnDebris(); refreshQuests(); checkQuestProgress();
+  // police fine check
+  const rep=getPoliceRep(G.gal);
+  if(rep<-60&&Math.random()<0.3){
+    const pol=Object.values(POLICE_FACTIONS).find(p=>p.gal===G.gal||true);
+    const fine=Math.min(G.cr,pol?pol.fine:500);
+    G.cr=Math.max(0,G.cr-fine);
+    if(fine>0) toast(`👮 Штраф полиции: -${fmt(fine)} кр`,'bad');
+  }
   if(Math.random()<sys.pc+(GALAXIES.findIndex(g=>g.id===sys.gal)*0.1)){
-    const rawTier=Math.min(PIRATES.length,Math.floor(G.lvl/6)+GALAXIES.findIndex(g=>g.id===sys.gal)+1+Math.floor((calcRangerPower()||0)/240));
-    const tier=smoothEnemyTier(rawTier);
-    startCombat(tier-1);
+    const tier=Math.min(PIRATES.length-1,Math.floor(G.lvl/5)+GALAXIES.findIndex(g=>g.id===sys.gal));
+    startCombat(tier);
     toast(`☠️ Перехват в ${sys.name}!`,'bad');
     goTo('more',null); setMoreTab('combat',null);
   } else {
