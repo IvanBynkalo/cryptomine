@@ -285,9 +285,28 @@ let activeTechCat='weapons';
 let marketCat='hull';
 
 function setMoreTab(t,btn){
-  document.querySelectorAll('.sc-more .tc-btn').forEach(b=>b.classList.remove('on'));
-  btn?.classList.add('on'); moreTab=t;
+  // Highlight correct bottom nav button
+  document.querySelectorAll('.mnb').forEach(b=>b.classList.remove('on'));
+  const nb=document.getElementById('mnb-'+t);
+  if(nb) nb.classList.add('on');
+  // Hide extra row if clicking main item
+  const extraIds=['police','land','story','debris'];
+  if(!extraIds.includes(t)){
+    const ex=document.getElementById('more-extra');
+    if(ex) ex.style.display='none';
+  }
+  moreTab=t;
   renderMoreTab();
+}
+
+function toggleMoreSubnav(){
+  const ex=document.getElementById('more-extra');
+  if(!ex) return;
+  const visible=ex.style.display==='grid';
+  ex.style.display=visible?'none':'grid';
+  // highlight ••• button
+  const btn=document.getElementById('mnb-more2');
+  if(btn) btn.classList.toggle('on',!visible);
 }
 function setTechCat(c,btn){
   document.querySelectorAll('.tech-cats .tc-btn').forEach(b=>b.classList.remove('on'));
