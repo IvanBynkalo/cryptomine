@@ -159,7 +159,7 @@ async function renderOnlineRangers(){
   const myPos=(leagueData.findIndex(p=>p.isMe||p.name===G.playerName))+1||'?';
   const sys=SYSTEMS.find(s=>s.id===G.sys);
 
-  let h=`
+  let h=`${uiBanner('🌐','Сеть рейнджеров','Лига, живые пилоты и боты-патрульные в одном тактическом канале.',`<div style="margin-top:8px">${uiChip('Место #'+myPos)} ${uiChip('Очки '+fmt(G.leagueScore||0))} ${uiChip('Локация '+(sys?.name||'?'))}</div>`)}
   <!-- ── Season header ── -->
   <div style="background:linear-gradient(135deg,var(--card2),var(--card3));border:1px solid var(--b2);border-radius:12px;padding:14px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:center">

@@ -7,12 +7,14 @@
 // ── HUD ──
 function updateHUD(){
   const rank=getRank();
-  const sysName=SYSTEMS.find(s=>s.id===G.sys)?.name||'?';
+  const sysObj=SYSTEMS.find(s=>s.id===G.sys);
+  const sysName=sysObj?.name||'?';
+  const locLabel=`${getPlanetEmoji(G.sys)} ${sysName}`;
   ['h-cred','g-cred','t-cred','q-cred','mo-cred'].forEach(id=>{
     const el=document.getElementById(id);if(el) el.textContent=fmt(G.cr);
   });
   ['h-fuel','g-fuel'].forEach(id=>{const el=document.getElementById(id);if(el) el.textContent=Math.floor(G.fuel);});
-  ['g-loc','t-loc','q-loc'].forEach(id=>{const el=document.getElementById(id);if(el) el.textContent=sysName;});
+  ['g-loc','t-loc','q-loc'].forEach(id=>{const el=document.getElementById(id);if(el) el.textContent=locLabel;});
   const hh=document.getElementById('h-hull');
   if(hh){hh.textContent=Math.floor(G.hull/G.maxHull*100)+'%';}
   const hr=document.getElementById('h-rank');
@@ -43,6 +45,13 @@ function goTo(name,btn){
 
 // haptic/hapticN/tg → globals.js
 
+
+function uiBanner(icon,title,sub,extra=''){
+  return `<div class="section-banner"><div class="ttl">${icon} ${title}</div><div class="sub">${sub}</div>${extra}</div>`;
+}
+function uiChip(text){ return `<span class="mini-chip">${text}</span>`; }
+
+
 // ── Mine screen ──
 function renderMine(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
@@ -61,6 +70,12 @@ function renderMine(){
   document.getElementById('planet-em').textContent=sys.emoji;
   document.getElementById('tap-lbl').textContent=
     `[ ТАП = +${fmt(cp)} · ⚡ +${(0.18+gSkill('engineering')*0.02).toFixed(2)}/сек ]`;
+  const mkE=document.getElementById('mine-kpi-energy'); if(mkE) mkE.textContent=`${Math.floor(G.energy/G.maxEnergy*100)}%`;
+  const mkH=document.getElementById('mine-kpi-hull'); if(mkH) mkH.textContent=`${Math.floor(G.hull/G.maxHull*100)}%`;
+  const mkS=document.getElementById('mine-kpi-system'); if(mkS) mkS.textContent=`${sys.emoji} ${sys.name}`;
+  const orbit=document.getElementById('orbit-dots'); if(orbit){
+    orbit.innerHTML=(sys.planets||[]).map((pl,i)=>`<div class="orbit-dot" style="transform:scale(${i===((G.selectedPlanetIndex?.[sys.id])||0)?1.08:1});border-color:${i===((G.selectedPlanetIndex?.[sys.id])||0)?'rgba(0,200,255,.35)':'rgba(0,200,255,.1)'}">${pl}</div>`).join('');
+  }
   const glows={home:'rgba(0,255,136,.4)',mining:'rgba(255,215,0,.4)',trade:'rgba(0,200,255,.4)',
     danger:'rgba(255,58,58,.4)',science:'rgba(168,85,247,.4)',paradise:'rgba(0,200,100,.4)'};
   document.getElementById('planet-glow').style.background=
@@ -78,7 +93,10 @@ function renderMine(){
       <div style="font-size:10px;color:var(--muted2);margin-bottom:6px">+${h.cps}/сек</div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-family:var(--mono);font-size:16px;color:var(--purple)">${owned}</span>
-        <button class="btn btn-sm ${ok?'btn-c':''}" ${ok?'':'disabled'} onclick="buyHelper('${h.id}')">💰${fmt(cost)}</button>
+        <div style="text-align:right">
+          ${helperRareCost(h.id,owned)?`<div style="font-size:9px;color:var(--cyan)">🧪 ${helperRareCost(h.id,owned)} ксенокр.</div>`:''}
+          <button class="btn btn-sm ${ok?'btn-c':''}" ${(ok&&(G.rareMatter||0)>=helperRareCost(h.id,owned))?'':'disabled'} onclick="buyHelper('${h.id}')">💰${fmt(cost)}</button>
+        </div>
       </div></div>`;
   });
 
@@ -108,7 +126,8 @@ function renderTrade(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   G.cargoMax=calcCargoMax();
   const used=calcCargoUsed();
-  let h=`<div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
+  let h=`${uiBanner(sys.emoji+' 🛒',`${sys.name} — торговый узел`,`Следи за средней ценой закупки, трендами и загрузкой трюма.`,`<div style="margin-top:8px">${uiChip('📦 '+used+'/'+G.cargoMax)} ${uiChip('⛽ '+Math.floor(G.fuel))} ${uiChip('🗓 '+timeStr())}</div>`)}
+  <div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
     <div class="bar-tr"><div class="bar-f" style="width:${used/G.cargoMax*100}%;background:linear-gradient(90deg,var(--amber),var(--gold))"></div></div></div>`;
   const inv=Object.entries(G.cargo).filter(([,v])=>v>0);
   if(inv.length){
@@ -162,13 +181,14 @@ function renderTrade(){
 // ── Quest screen ──
 function renderQuests(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
-  let h=`<div class="sh">Мэры — ${sys.name}</div>`;
+  const activeCount=G.quests.filter(q=>q.accepted&&!q.done).length;
+  let h=`${uiBanner('📋',`Контракты системы ${sys.name}`,`Берите поручения мэров, следите за прогрессом и сроками.`,`<div style="margin-top:8px">${uiChip('Активных: '+activeCount)} ${uiChip('Завершено: '+(G.completedQ||0))}</div>`)}<div class="sh">Мэры — ${sys.name}</div>`;
   const localMayors=MAYORS.filter(m=>m.sysId===G.sys);
   if(!localMayors.length){
     h+=`<div class="card" style="color:var(--muted2);font-size:12px">В этой системе нет мэра.</div>`;
   } else {
     localMayors.forEach(m=>{
-      h+=`<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      h+=`<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;background:linear-gradient(145deg,rgba(14,26,44,.96),rgba(9,18,30,.96))">
         <span style="font-size:32px">${m.icon}</span>
         <div><div style="font-size:13px;font-weight:700">${m.name}</div>
         <div style="font-size:10px;color:var(--purple)">${m.title}</div></div></div>`;
@@ -189,9 +209,11 @@ function renderQuests(){
         <div class="bar-tr" style="margin-bottom:8px"><div class="bar-f bf-xp" style="width:${Math.min(100,prog/total*100)}%"></div></div>`:''}
       <div class="qc-reward">🏆 ${fmt(q.reward)} кр · +${q.xp} XP · +${q.rp} НО</div>
       <div style="margin-top:8px;display:flex;gap:6px">
-        ${!q.accepted?`<button class="btn btn-sm btn-c" onclick="acceptCollect('${q.id}')">Принять</button>`:''}
+        ${!q.accepted?`<button class="btn btn-sm btn-c" onclick="acceptQuest('${q.id}')">Принять</button>`:''}
         ${q.accepted&&q.type==='kill'?`<button class="btn btn-sm btn-g" onclick="claimKillQuest('${q.id}')" ${prog>=total?'':'disabled'}>Сдать</button>`:''}
-        ${q.expires?`<span style="font-size:9px;color:var(--muted2)">Истекает: День ${q.expires}</span>`:''}
+        ${q.accepted&&q.type==='collect'?`<button class="btn btn-sm btn-g" onclick="claimCollectQuest('${q.id}')" ${prog>=total?'':'disabled'}>Сдать</button>`:''}
+        ${q.accepted&&q.type==='deliver'&&prog<total?`<span style="font-size:9px;color:var(--cyan)">Продайте товар в точке назначения</span>`:''}
+        ${q.expires?`<span style="font-size:9px;color:var(--muted2)">До ${q.expires} дн.</span>`:''}
       </div></div>`;
   });
   if(elsewhere.length){
@@ -206,7 +228,7 @@ function renderQuests(){
   }
   document.getElementById('quest-scr').innerHTML=h;
   document.getElementById('q-cred').textContent=fmt(G.cr);
-  document.getElementById('q-loc').textContent=sys.name;
+  document.getElementById('q-loc').textContent=`${getPlanetEmoji(G.sys)} ${sys.name}`;
   document.getElementById('q-time').textContent=timeStr();
   updateQuestBadge();
 }
@@ -253,13 +275,14 @@ function renderCombatHTML(){
   let h='';
   if(!G.combat){
     const sys=SYSTEMS.find(s=>s.id===G.sys);
-    h+=`<div class="card" style="text-align:center;padding:20px">
-      <div style="font-size:48px;margin-bottom:8px">🛸</div>
+    h+=`${uiBanner('⚔️',`Боевая зона — ${sys.name}`,`Пиратская активность: ${Math.round(sys.pc*100)}%. Подготовь оружие, ракеты и корпус перед вылазкой.`,`<div style="margin-top:8px">${uiChip('☠️ '+G.killCount+' побед')} ${uiChip('👽 '+(G.alienKills||0)+' пришельцев')} ${uiChip('🚀 '+calcAttack()+' атака')}</div></div>`)}
+    <div class="card" style="text-align:center;padding:20px">
+      <div style="font-size:52px;margin-bottom:8px;filter:drop-shadow(0 0 16px rgba(0,200,255,.35))">🛸</div>
       <div style="font-size:13px;color:var(--muted2);margin-bottom:12px">
-        <b style="color:var(--cyan)">${sys.name}</b> — пиратская активность: ${Math.round(sys.pc*100)}%
+        <b style="color:var(--cyan)">${sys.name}</b> — сектор патрулируется пиратами и рейдерами.
       </div>
       <button class="btn btn-r btn-full" onclick="findEnemy()">🔍 Искать противника</button>
-      ${(G.alienInvasion||alienInvasion)?`<button class="btn btn-full" style="background:rgba(255,45,120,.15);border-color:#ff2d78;color:#ff2d78;margin-top:8px" onclick="fightAlien()">👽 Атаковать вторженцев!</button>`:''}
+      ${normalizeAlienInvasion(G.alienInvasion||alienInvasion)?`<button class="btn btn-full" style="background:rgba(255,45,120,.15);border-color:#ff2d78;color:#ff2d78;margin-top:8px" onclick="fightAlien()">👽 Атаковать вторженцев!</button>`:''}
     </div>`;
     h+=`<div class="sh">Статистика</div>
     <div class="g2">
@@ -425,7 +448,7 @@ function renderRangersHTML(){
     ${RANKS.filter(r=>G.killCount<r.minKills||G.lvl<r.minLvl).slice(0,1).map(r=>
       `<div style="margin-top:8px;font-size:10px;color:var(--muted2)">Следующее: <b style="color:var(--cyan)">${r.name}</b> (убийств: ${r.minKills}, уровень: ${r.minLvl})</div>`
     ).join('')}</div>`;
-  h+=`<div class="sh">Рейнджеры-боты</div>`;
+  h+=`<div class="card" style="margin-bottom:8px"><div style="font-size:10px;color:var(--muted2)">Редкий ресурс</div><div style="font-family:var(--mono);font-size:22px;color:var(--cyan)">🧪 ${fmt(G.rareMatter||0)}</div><div style="font-size:10px;color:var(--muted2)">выпадает за пришельцев и задания мэров</div></div><div class="sh">Рейнджеры-боты</div>`;
   RANGER_BOTS.forEach(r=>{
     const owned=G.rangers[r.id]||0;
     const cost=Math.round(r.cost*Math.pow(r.costM,owned));
@@ -452,10 +475,8 @@ function renderRangersHTML(){
 function renderDebrisHTML(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   const now=Date.now();
-  let h=`<div class="card" style="margin-bottom:10px;font-size:11px;color:var(--muted2)">
-    Обломки в <b style="color:var(--cyan)">${sys.name}</b>. Обновляются каждые 24 игровых часа.
-  </div>`;
-  const local=G.debrisActive.filter(d=>!d.collected);
+  let h=`<div class="card" style="margin-bottom:10px;font-size:11px;color:var(--muted2)">Обломки рядом с <b style="color:var(--cyan)">${getPlanetEmoji(G.sys)} ${sys.name}</b>. Содержат товары и НО.</div>`;
+  const local=G.debrisActive||[];
   if(!local.length){
     h+=`<div class="card" style="text-align:center;padding:20px;color:var(--muted2)">
       <div style="font-size:40px;margin-bottom:8px">🌌</div>
@@ -465,22 +486,20 @@ function renderDebrisHTML(){
     return h;
   }
   local.forEach(db=>{
-    const dt=DEBRIS_TYPES.find(d=>d.id===db.typeId);if(!dt) return;
-    const ready=now>=db.endTime;
-    const progress=Math.min(1,(now-(db.endTime-dt.time*1000))/(dt.time*1000));
-    const inSys=db.sysId===G.sys;
-    const sysDet=SYSTEMS.find(s=>s.id===db.sysId);
-    h+=`<div class="debris-card${ready&&inSys?' glow-g':''}" onclick="collectDebris('${db.id}')">
-      <div class="db-icon">${dt.icon}</div>
-      <div class="db-info">
-        <div class="db-name">${dt.name}</div>
-        <div class="db-desc">${sysDet?.name||'?'}</div>
-        <div class="db-reward">📦 ${Object.entries(dt.reward).map(([k,v])=>`${GOODS[k]?.icon||k}×${v}`).join(' ')} · +${dt.rp} НО</div>
-        ${ready&&inSys?`<div style="font-size:11px;color:var(--green);margin-top:3px">✅ Готово!</div>`:
-          !inSys?`<div style="font-size:10px;color:var(--muted);margin-top:3px">→ ${sysDet?.name}</div>`:
-          `<div class="db-time">${Math.ceil((db.endTime-now)/1000)}с</div>`}
-        <div class="db-bar"><div class="db-bar-f" style="width:${Math.min(100,progress*100)}%"></div></div>
-      </div></div>`;
+    const dt=DEBRIS_TYPES.find(d=>d.id===db.type); if(!dt) return;
+    const left=Math.max(0,Math.ceil((db.expires-now)/1000));
+    const pct=Math.max(0,Math.min(100,100-left/(dt.time||1)*100));
+    h+=`<div class="card" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <div>
+          <div style="font-size:13px;font-weight:700">${dt.icon} ${dt.name}</div>
+          <div style="font-size:10px;color:var(--muted2)">📦 ${Object.entries(dt.reward||{}).map(([k,v])=>`${GOODS[k]?.icon||k}×${v}`).join(' ')} · +${dt.rp} НО</div>
+          <div style="font-size:10px;color:${left>0?'var(--gold)':'var(--green)'}">${left>0?`Исчезнет через ${left}с`:'Готово к сбору'}</div>
+        </div>
+        <button class="btn btn-sm btn-c" onclick="collectDebris('${db.id}')">Собрать</button>
+      </div>
+      <div class="db-bar" style="margin-top:8px"><div class="db-bar-f" style="width:${pct}%"></div></div>
+    </div>`;
   });
   return h;
 }
