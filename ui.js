@@ -3,6 +3,30 @@
 // ═══════════════════════════════════════
 
 // toast, haptic, hapticN, fmt → globals.js
+// _goodBase, _goodName, _goodIcon, _sysGoods → engine.js (loaded before ui.js)
+// Fallback definitions in case engine.js helpers are not yet available:
+if(typeof _goodBase==='undefined') window._goodBase=function(gId){
+  if(globalThis.GOODS&&GOODS[gId]) return GOODS[gId].base||0;
+  const it=globalThis.MARKET_BY_ID?.[gId]||(globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
+  return it?.basePrice||it?.base||0;
+};
+if(typeof _goodName==='undefined') window._goodName=function(gId){
+  if(globalThis.GOODS&&GOODS[gId]) return GOODS[gId].name||gId;
+  const it=globalThis.MARKET_BY_ID?.[gId]||(globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
+  return it?.name||gId;
+};
+if(typeof _goodIcon==='undefined') window._goodIcon=function(gId){
+  if(globalThis.GOODS&&GOODS[gId]) return GOODS[gId].icon||'📦';
+  const it=globalThis.MARKET_BY_ID?.[gId]||(globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
+  return it?.icon||'📦';
+};
+if(typeof _sysGoods==='undefined') window._sysGoods=function(sys){
+  if(!sys) return [];
+  if(typeof getSystemMarketGoods==='function'){
+    try{ const r=getSystemMarketGoods(sys); if(r&&r.length) return r; }catch(e){}
+  }
+  return sys.goods||[];
+};
 
 // ── HUD ──
 function updateHUD(){
@@ -139,7 +163,7 @@ function renderTrade(){
       <div class="mini-stat"><div class="l">Кредиты</div><div class="v">${fmt(G.cr)}</div></div>
       <div class="mini-stat"><div class="l">Трюм</div><div class="v">${used}/${G.cargoMax}</div></div>
       <div class="mini-stat"><div class="l">Закуплено</div><div class="v">${fmt(invValue)}</div></div>
-      <div class="mini-stat"><div class="l">Спрос</div><div class="v">${sys.goods.length} поз.</div></div>
+      <div class="mini-stat"><div class="l">Спрос</div><div class="v">${(sys.goods||[]).length} поз.</div></div>
     </div>
   </div>
   <div class="section-shell"><div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
@@ -148,7 +172,7 @@ function renderTrade(){
   if(inv.length){
     h+=`<div class="sh">Ваш груз</div>`;
     inv.forEach(([gId,amt])=>{
-      const def=GOODS[gId],price=G.prices[sys.id]?.[gId];
+      const def={name:_goodName(gId),icon:_goodIcon(gId)},price=G.prices[sys.id]?.[gId];
       const sell=price?Math.round(price*.9*(1+gSkill('trade')*.03)):null;
       h+=`<div class="good-row"><div class="gi">${def.icon}</div>
         <div class="ginfo"><div class="gname">${def.name} ×${amt}</div>
@@ -165,8 +189,11 @@ function renderTrade(){
     });
   }
   h+=`<div class="sh">${sys.emoji} ${sys.name} — Рынок</div>`;
-  sys.goods.forEach(gId=>{
-    const def=GOODS[gId],price=G.prices[sys.id]?.[gId]||def.base;
+  const marketGoods=typeof _sysGoods==='function'?_sysGoods(sys):(sys.goods||[]);
+  marketGoods.forEach(gId=>{
+    const gName=_goodName(gId),gIcon=_goodIcon(gId);
+    const price=G.prices[sys.id]?.[gId]||_goodBase(gId)||0;
+    if(!price) return;
     const hist=G.priceHistory[sys.id]?.[gId]||[];
     const trend=hist.length>1?(hist[hist.length-1]>hist[0]?'up':'dn'):'eq';
     const trendIcon=trend==='up'?'▲':trend==='dn'?'▼':'—';
@@ -174,9 +201,9 @@ function renderTrade(){
     const buyP=Math.round(price*(1-gSkill('eloquence')*.02));
     const canBuy=G.cr>=buyP&&used<G.cargoMax;
     const owned=G.cargo[gId]||0;
-    h+=`<div class="good-row"><div class="gi">${def.icon}</div>
+    h+=`<div class="good-row"><div class="gi">${gIcon}</div>
       <div class="ginfo">
-        <div class="gname">${def.name}</div>
+        <div class="gname">${gName}</div>
         <div class="gprice">💰 ${fmt(price)}${buyP<price?` <span style="color:var(--green)">(${fmt(buyP)})</span>`:''}</div>
         <div style="font-size:9px;color:${trendCol}">${trendIcon} ${trend==='up'?'Растёт':trend==='dn'?'Падает':'Стабильно'}</div>
         ${owned?`<div style="font-size:9px;color:var(--muted2)">Имеется: ${owned}</div>`:''}
@@ -244,7 +271,7 @@ function renderQuests(){
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
         ${!q.accepted?`<button class="btn btn-sm btn-c" onclick="acceptQuest('${q.id}')">Принять</button>`:''}
         ${canClaimDeliver?`<button class="btn btn-sm btn-g" onclick="claimDeliverQuest('${q.id}')">Сдать груз</button>`:''}
-        ${q.accepted&&q.type==='deliver'&&!canClaimDeliver&&G.sys===q.need.destSys?`<span style="font-size:10px;color:var(--muted2)">Нужно ${q.need.amt}× ${GOODS[q.need.good].name} в трюме</span>`:''}
+        ${q.accepted&&q.type==='deliver'&&!canClaimDeliver&&G.sys===q.need.destSys?`<span style="font-size:10px;color:var(--muted2)">Нужно ${q.need.amt}× ${_goodName(q.need.good)} в трюме</span>`:''}
         ${q.accepted&&q.type==='deliver'&&G.sys!==q.need.destSys?`<span style="font-size:10px;color:var(--muted2)">Пункт назначения: ${SYSTEMS.find(s=>s.id===q.need.destSys)?.name||q.need.destSys}</span>`:''}
         ${canClaimKill?`<button class="btn btn-sm btn-g" onclick="claimKillQuest('${q.id}')">Сдать</button>`:''}
         ${canClaimCollect?`<button class="btn btn-sm btn-g" onclick="claimCollectQuest('${q.id}')">Сдать</button>`:''}
@@ -267,7 +294,7 @@ function renderQuests(){
           ${canClaimDeliver?`<button class="btn btn-sm btn-g" onclick="claimDeliverQuest('${q.id}')">Сдать груз</button>`:''}
           ${canClaimKill?`<button class="btn btn-sm btn-g" onclick="claimKillQuest('${q.id}')">Сдать</button>`:''}
           ${canClaimCollect?`<button class="btn btn-sm btn-g" onclick="claimCollectQuest('${q.id}')">Сдать</button>`:''}
-          ${q.type==='deliver'&&G.sys===q.need.destSys&&!canClaimDeliver?`<span style="font-size:10px;color:var(--muted2)">Нужно ${q.need.amt}× ${GOODS[q.need.good].name} в трюме</span>`:''}
+          ${q.type==='deliver'&&G.sys===q.need.destSys&&!canClaimDeliver?`<span style="font-size:10px;color:var(--muted2)">Нужно ${q.need.amt}× ${_goodName(q.need.good)} в трюме</span>`:''}
           ${q.type!=='deliver'&&prog>=total&&G.sys!==q.sysId?`<span style="font-size:10px;color:var(--muted2)">Вернитесь в систему выдачи для сдачи</span>`:''}
         </div></div>`;
     });
@@ -555,9 +582,8 @@ function renderSkillsHTML(){
 
 // ── Market HTML ──
 function renderMarketHTML(){
-  // Рынок — это каталог, но с логикой покупки без авто-экипировки
   const catMap={hull:'hull',engine:'engine',weapon:'weapon',shield:'defense'};
-  catalogFilter=catMap[marketCat]||marketCat||catalogFilter||'hull';
+  window.catalogFilter=catMap[marketCat]||marketCat||window.catalogFilter||'hull';
   return renderCatalogHTML();
 }
 
@@ -617,20 +643,20 @@ function renderDebrisHTML(){
     return h;
   }
   local.forEach(db=>{
-    const dt=DEBRIS_TYPES.find(d=>d.id===db.typeId);if(!dt) return;
-    const ready=now>=db.endTime;
-    const progress=Math.min(1,(now-(db.endTime-dt.time*1000))/(dt.time*1000));
-    const inSys=db.sysId===G.sys;
-    const sysDet=SYSTEMS.find(s=>s.id===db.sysId);
-    h+=`<div class="debris-card${ready&&inSys?' glow-g':''}" onclick="collectDebris('${db.id}')">
-      <div class="db-icon">${dt.icon}</div>
+    // spawnDebris stores: db.type, db.name, db.icon, db.reward(number), db.rp, db.expires(timestamp)
+    const ready=now>=db.expires;
+    const totalDur=30000; // fallback display duration
+    const elapsed=now-(db.expires-totalDur);
+    const progress=Math.min(1,Math.max(0,elapsed/totalDur));
+    h+=`<div class="debris-card${ready?' glow-g':''}" onclick="collectDebris('${db.id}')">
+      <div class="db-icon">${db.icon||'💫'}</div>
       <div class="db-info">
-        <div class="db-name">${dt.name}</div>
-        <div class="db-desc">${sysDet?.name||'?'}</div>
-        <div class="db-reward">📦 ${Object.entries(dt.reward).map(([k,v])=>`${GOODS[k]?.icon||k}×${v}`).join(' ')} · +${dt.rp} НО</div>
-        ${ready&&inSys?`<div style="font-size:11px;color:var(--green);margin-top:3px">✅ Готово!</div>`:
-          !inSys?`<div style="font-size:10px;color:var(--muted);margin-top:3px">→ ${sysDet?.name}</div>`:
-          `<div class="db-time">${Math.ceil((db.endTime-now)/1000)}с</div>`}
+        <div class="db-name">${db.name||db.type}</div>
+        <div class="db-desc">${sys.name}</div>
+        <div class="db-reward">💰 +${fmt(db.reward)} кр · +${db.rp} НО</div>
+        ${ready
+          ?`<div style="font-size:11px;color:var(--green);margin-top:3px">✅ Готово! Нажмите для сбора</div>`
+          :`<div class="db-time">Истекает через: ${Math.max(0,Math.ceil((db.expires-now)/1000))}с</div>`}
         <div class="db-bar"><div class="db-bar-f" style="width:${Math.min(100,progress*100)}%"></div></div>
       </div></div>`;
   });
@@ -666,7 +692,7 @@ function renderPoliceHTML(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   const canRefuel=sys&&['trade','paradise','home'].includes(sys.type);
   const fuelNeeded=Math.max(0,G.maxFuel-G.fuel);
-  const fuelPrice=canRefuel?Math.round((G.prices[G.sys]?.fuel||80)*0.6):0;
+  const fuelPrice=canRefuel?Math.round((G.prices[G.sys]?.['fuel']||G.prices[G.sys]?.['technical_fuel']||G.prices[G.sys]?.['fuel_cells']||80)*0.6):0;
   const refuelCost=canRefuel?Math.round(fuelPrice*fuelNeeded/10):0;
   h+=`<div class="sh">⛽ Дозаправка</div>
   <div class="card">
@@ -705,7 +731,7 @@ function renderLandHTML(){
   const plot=G.landPlots[G.sys];
   const level=plot?plot.level:0;
   const costs=[50000,200000,500000,1500000,5000000];
-  const goods=sys.goods||[];
+  const goods=typeof _sysGoods==='function'?_sysGoods(sys).slice(0,8):(sys.goods||[]);
   h+=`<div class="card">
     <div style="font-size:13px;font-weight:700;margin-bottom:6px">📍 ${sys.name}</div>
     <div style="font-size:10px;color:var(--muted2);margin-bottom:8px">
@@ -718,7 +744,7 @@ function renderLandHTML(){
       <span style="font-size:11px;color:var(--green);margin-left:6px">Уровень ${level}/5</span>
     </div>
     <div style="font-size:10px;color:var(--cyan);margin-bottom:8px">
-      Производит: ${plot.good?GOODS[plot.good]?.name:'?'} — ${level*2}/день · +${level*5}/сек
+      Производит: ${plot.good?_goodName(plot.good):'?'} — ${level*2}/день · +${level*5}/сек
     </div>`;
   }
   if(level<5){
@@ -726,7 +752,7 @@ function renderLandHTML(){
     h+=`<div style="margin-bottom:8px">
       ${goods.map(gId=>`<button class="btn btn-sm ${G.cr>=cost?'btn-g':''}" style="margin-right:4px;margin-bottom:4px"
         onclick="buyLandPlot('${G.sys}','${gId}')" ${G.cr>=cost?'':'disabled'}>
-        ${GOODS[gId]?.icon} ${GOODS[gId]?.name}
+        ${_goodIcon(gId)} ${_goodName(gId)}
       </button>`).join('')}
     </div>
     <div style="font-size:10px;color:var(--gold)">💰 Цена ур.${level+1}: ${fmt(cost)} кр</div>`;
@@ -743,7 +769,7 @@ function renderLandHTML(){
       h+=`<div class="card" style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-size:12px;font-weight:700">${s?.emoji} ${s?.name}</div>
-          <div style="font-size:10px;color:var(--muted2)">${GOODS[p.good]?.icon} ${GOODS[p.good]?.name} · Ур.${p.level} · +${p.level*2}/день</div>
+          <div style="font-size:10px;color:var(--muted2)">${_goodIcon(p.good)} ${_goodName(p.good)} · Ур.${p.level} · +${p.level*2}/день</div>
         </div>
         <div style="font-family:var(--mono);font-size:14px;color:var(--green)">+${p.level*5}/сек</div>
       </div>`;
@@ -785,7 +811,7 @@ function renderStoryHTML(){
         </div>
         <div style="font-size:10px;color:var(--muted2);margin-bottom:8px">${curStep.desc}</div>`;
       if(curStep.type==='deliver') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">
-          📦 Нужно: ${curStep.amt}× ${GOODS[curStep.good]?.name} → система ${SYSTEMS.find(s=>s.id===curStep.sys)?.name}
+          📦 Нужно: ${curStep.amt}× ${_goodName(curStep.good)} → система ${SYSTEMS.find(s=>s.id===curStep.sys)?.name}
           (в трюме: ${G.cargo[curStep.good]||0})
         </div>`;
       if(curStep.type==='arrive') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">

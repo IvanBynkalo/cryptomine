@@ -2,25 +2,50 @@
 //  engine.js — game loop, time, quests, mining, bots
 // ═══════════════════════════════════════
 
+function _goodBase(gId){
+  if(globalThis.GOODS && GOODS[gId]) return GOODS[gId].base || 0;
+  const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
+  return it?.basePrice || it?.base || 0;
+}
+function _goodName(gId){
+  if(globalThis.GOODS && GOODS[gId]) return GOODS[gId].name || gId;
+  const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
+  return it?.name || gId;
+}
+function _goodIcon(gId){
+  if(globalThis.GOODS && GOODS[gId]) return GOODS[gId].icon || '📦';
+  const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
+  return it?.icon || '📦';
+}
+function _sysGoods(sys){
+  if(!sys) return [];
+  if(typeof getSystemMarketGoods==='function'){
+    try{ const r=getSystemMarketGoods(sys); if(r&&r.length) return r; }catch(e){}
+  }
+  return sys.goods||[];
+}
+
 function initPrices(){
   SYSTEMS.forEach(sys=>{
     if(!G.prices[sys.id]) G.prices[sys.id]={};
     if(!G.priceHistory[sys.id]) G.priceHistory[sys.id]={};
-    (sys.goods||[]).forEach(gId=>{
+    _sysGoods(sys).forEach(gId=>{
+      const base=_goodBase(gId);
       if(!G.prices[sys.id][gId])
-        G.prices[sys.id][gId]=Math.round(GOODS[gId].base*(0.65+Math.random()*0.7));
+        G.prices[sys.id][gId]=base>0?Math.round(base*(0.65+Math.random()*0.7)):10;
       if(!G.priceHistory[sys.id][gId]) G.priceHistory[sys.id][gId]=[];
     });
   });
 }
-initPrices(); // run immediately before tick starts
+// initPrices() called once from ui.js after all scripts loaded
 
 function fluctuatePrices(bigEvent=false){
   SYSTEMS.forEach(sys=>{
     if(!G.prices[sys.id]) G.prices[sys.id]={};
     if(!G.priceHistory[sys.id]) G.priceHistory[sys.id]={};
-    (sys.goods||[]).forEach(gId=>{
-      const base=GOODS[gId].base, cur=G.prices[sys.id][gId]||base;
+    _sysGoods(sys).forEach(gId=>{
+      const base=_goodBase(gId)||0, cur=G.prices[sys.id][gId]||base;
+      if(!base) return;
       let change=(Math.random()-.5)*(bigEvent?0.35:0.12);
       if(sys.type==='mining'&&(gId==='ore'||gId==='minerals')) change-=0.05;
       if(sys.type==='trade'&&(gId==='tech'||gId==='food')) change-=0.04;
@@ -36,9 +61,11 @@ function fluctuatePrices(bigEvent=false){
   if(numTraders>0){
     for(let i=0;i<numTraders*2;i++){
       const sys=SYSTEMS[Math.floor(Math.random()*SYSTEMS.length)];
-      const good=sys.goods?.[Math.floor(Math.random()*sys.goods.length)];
+      const goods=_sysGoods(sys);
+      const good=goods[Math.floor(Math.random()*goods.length)];
       if(!good||!G.prices[sys.id]) continue;
-      const base=GOODS[good].base, cur=G.prices[sys.id][good]||base;
+      const base=_goodBase(good)||0, cur=G.prices[sys.id][good]||base;
+      if(!base) continue;
       G.prices[sys.id][good]=Math.max(Math.round(base*.3),Math.min(Math.round(base*3),Math.round(cur*(1+(Math.random()-.5)*0.08))));
     }
     G.botActions.unshift(`🤝 Торговцы изменили цены в ${numTraders*2} системах`);
@@ -97,13 +124,14 @@ function refreshQuests(){
       type,sysId:m.sysId,giver:m.name,giverIcon:m.icon,
       reward,xp,rp,expires:absDay+5,progress:0,accepted:false,done:false};
     if(type==='deliver'){
-      const goods=Object.keys(GOODS);
-      const good=goods[Math.floor(Math.random()*goods.length)];
+      // Use all available goods (legacy GOODS + catalog)
+      const allGoodIds=[...Object.keys(GOODS||{}), ...(globalThis.MARKET_CATALOG||[]).filter(x=>x.questUse!==false).map(x=>x.id)];
+      const good=allGoodIds[Math.floor(Math.random()*allGoodIds.length)];
       const dest=SYSTEMS.filter(s=>s.id!==m.sysId)[Math.floor(Math.random()*18)];
       const amt=2+Math.floor(Math.random()*5);
       q.need={good,amt,destSys:dest.id};
-      q.title=`Доставить ${GOODS[good].name} → ${dest.name}`;
-      q.desc=`Возьмите ${amt}× ${GOODS[good].name} и доставьте в систему ${dest.name}. Товар нужно продать там.`;
+      q.title=`Доставить ${_goodName(good)} → ${dest.name}`;
+      q.desc=`Возьмите ${amt}× ${_goodName(good)} и доставьте в систему ${dest.name}. Товар нужно продать там.`;
       q.icon='📦';q.color='#00c8ff';
     } else if(type==='kill'){
       const tier=Math.min(PIRATES.length-1,Math.floor(G.lvl/5)+1);
@@ -158,7 +186,7 @@ function claimDeliverQuest(qId){
   if((G.cargo[q.need.good]||0)<=0){ delete G.cargo[q.need.good]; if(G.cargoCost) delete G.cargoCost[q.need.good]; }
   q.progress=q.need.amt;
   completeQuest(q);
-  toast(`📦 Груз сдан: ${GOODS[q.need.good].name}`,'good');
+  toast(`📦 Груз сдан: ${_goodName(q.need.good)}`,'good');
   renderQuests(); if(typeof renderTrade==='function' && curScreen==='trade') renderTrade();
 }
 function claimKillQuest(qId){
@@ -371,7 +399,7 @@ function refuel(){
   }
   const needed=Math.max(0,G.maxFuel-G.fuel);
   if(needed<=0){toast('⛽ Бак полон!','warn');return;}
-  const fuelPrice=Math.round((G.prices[G.sys]?.fuel||80)*0.6); // 60% of market price
+  const fuelPrice=Math.round((G.prices[G.sys]?.['fuel']||G.prices[G.sys]?.['technical_fuel']||G.prices[G.sys]?.['fuel_cells']||80)*0.6); // 60% of market price
   const totalCost=Math.round(fuelPrice*needed/10); // per 10 units
   if(G.cr<totalCost){toast(`💸 Нужно ${fmt(totalCost)} кр на заправку`,'bad');return;}
   G.cr-=totalCost;G.fuel=G.maxFuel;
@@ -381,6 +409,12 @@ function refuel(){
 
 // ── Game loop ──
 let lastTick=Date.now();
+// Migrate missing fields introduced in new features
+if(!G.eventHistory)    G.eventHistory=[];
+if(!G.anomalyLog)      G.anomalyLog=[];
+if(!G.storyProgress)   G.storyProgress={};
+if(!G.anomaliesActive) G.anomaliesActive=[];
+if(!G.anomaliesFound)  G.anomaliesFound=0;
 function tick(){
   const now=Date.now();
   const dt=(now-lastTick)/1000;lastTick=now;
