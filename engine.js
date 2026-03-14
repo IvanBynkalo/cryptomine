@@ -425,6 +425,7 @@ function tickRandomEvents(){
   }
   // spawn new event (chance per day)
   if(!G.activeEvent&&Math.random()<0.18){
+    if(typeof RANDOM_EVENTS==='undefined' || !Array.isArray(RANDOM_EVENTS) || !RANDOM_EVENTS.length) return;
     const ev=RANDOM_EVENTS[Math.floor(Math.random()*RANDOM_EVENTS.length)];
     G.activeEvent={...ev, startDay:absDay, endsDay:absDay+(ev.duration||1)};
     G.eventHistory.unshift({id:ev.id,name:ev.name,day:absDay});
@@ -478,6 +479,7 @@ function tickAnomalies(){
   // pick anomaly by rarity
   const roll=Math.random();
   let acc=0;
+  if(typeof ANOMALIES==='undefined' || !Array.isArray(ANOMALIES) || !ANOMALIES.length) return;
   for(const a of ANOMALIES){
     acc+=a.rarity;
     if(roll<acc){

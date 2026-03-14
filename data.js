@@ -244,3 +244,26 @@ const LEAGUE_TIERS=[
   {name:'Алмаз',   min:1000,icon:'💎',color:'#a855f7'},
   {name:'Мастер',  min:2500,icon:'👑',color:'#ff2d78'},
 ];
+
+
+// Fallback pools for events/anomalies used by engine/ui
+const RANDOM_EVENTS = [
+  {id:'gold_rush', icon:'💰', name:'Золотая лихорадка', desc:'Цены на руду и минералы временно растут.', effect:'price_crash', duration:2},
+  {id:'energy_x3', icon:'⚡', name:'Энергетический всплеск', desc:'Станции вырабатывают больше энергии.', effect:'energy_x3', duration:1},
+  {id:'fuel_x2', icon:'⛽', name:'Топливный дефицит', desc:'Перелёты требуют больше топлива.', effect:'fuel_x2', duration:2},
+  {id:'teleport', icon:'🌀', name:'Червоточина', desc:'Неожиданный пространственный выброс.', effect:'teleport', duration:1},
+  {id:'spawn_debris', icon:'🛰️', name:'Поле обломков', desc:'В системе появляется больше обломков.', effect:'spawn_debris', duration:1},
+  {id:'police_x2', icon:'👮', name:'Режим патруля', desc:'Полиция активнее зачищает угрозы.', effect:'police_x2', duration:2},
+];
+
+const ANOMALIES = [
+  {id:'anom_echo', icon:'🔮', name:'Эхо пустоты', desc:'Резонанс приносит науку и кредиты.', rarity:0.35, danger:0.15, reward:{cr:300, rp:8}},
+  {id:'anom_rift', icon:'🌀', name:'Локальный разлом', desc:'Может отбросить корабль в другую систему.', rarity:0.2, danger:0.25, reward:{rp:15, teleport:true}},
+  {id:'anom_cache', icon:'📦', name:'Забытый контейнер', desc:'Содержит полезные ресурсы.', rarity:0.25, danger:0.1, reward:{cr:600, minerals:2, tech:1}},
+  {id:'anom_star', icon:'🌟', name:'Звёздный шрам', desc:'Заряжает реактор и ускоряет исследования.', rarity:0.2, danger:0.2, reward:{energy:35, rp:20}},
+];
+
+try {
+  globalThis.RANDOM_EVENTS = RANDOM_EVENTS;
+  globalThis.ANOMALIES = ANOMALIES;
+} catch(e) {}

@@ -451,6 +451,18 @@ function getEquipLockReason(item, G){
   return reasons.join(' · ');
 }
 
-// Обратная совместимость — EQUIPMENT теперь указывает на полный каталог
-var EQUIPMENT = EQUIPMENT_CATALOG;
+// Экспорт в globalThis без конфликта со старым data.js
+try {
+  globalThis.EQUIPMENT_CATALOG = EQUIPMENT_CATALOG;
+  globalThis.MANUFACTURERS = MANUFACTURERS;
+  globalThis.RARITY_COLOR = RARITY_COLOR;
+  globalThis.HULLS_CATALOG = HULLS_CATALOG;
+  globalThis.WEAPONS_CATALOG = WEAPONS_CATALOG;
+  globalThis.SHIELDS_CATALOG = SHIELDS_CATALOG;
+  globalThis.ENGINES_CATALOG = ENGINES_CATALOG;
+  globalThis.SPECMODS_CATALOG = SPECMODS_CATALOG;
+  globalThis.DRONES_CATALOG = DRONES_CATALOG;
+  globalThis.getEquipUnlocked = getEquipUnlocked;
+  globalThis.getEquipLockReason = getEquipLockReason;
+} catch(e) {}
 
