@@ -464,7 +464,7 @@ body::after{
     <div style="display:flex;gap:6px;padding:0 10px 8px;flex-wrap:wrap">
       <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('tech',null)">🔬 Тех</button>
       <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('skills',null)">🧠 Навыки</button>
-      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('market',null)">🏪 Рынок</button>
+      <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('catalog',null)">🏪 Рынок</button>
       <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('police',null)">👮⛽</button>
       <button class="btn btn-sm" style="font-size:10px" onclick="goTo('more',document.querySelector('.nb:last-child'));setMoreTab('land',null)">🌱 Земля</button>
     </div>
@@ -568,10 +568,9 @@ body::after{
   <div class="more-modnav">
     <button class="mnb on" id="mnb-combat" onclick="setMoreTab('combat',this)"><span class="mni">⚔️</span><span class="mnl">Бой</span></button>
     <button class="mnb" id="mnb-hangar" onclick="setMoreTab('hangar',this)"><span class="mni">🚀</span><span class="mnl">Ангар</span></button>
-    <button class="mnb" id="mnb-catalog" onclick="setMoreTab('catalog',this)"><span class="mni">📋</span><span class="mnl">Каталог</span></button>
+    <button class="mnb" id="mnb-catalog" onclick="setMoreTab('catalog',this)"><span class="mni">🏪</span><span class="mnl">Рынок</span></button>
     <button class="mnb" id="mnb-tech" onclick="setMoreTab('tech',this)"><span class="mni">🔬</span><span class="mnl">Тех</span></button>
     <button class="mnb" id="mnb-skills" onclick="setMoreTab('skills',this)"><span class="mni">🧠</span><span class="mnl">Навыки</span></button>
-    <button class="mnb" id="mnb-market" onclick="setMoreTab('market',this)"><span class="mni">🏪</span><span class="mnl">Рынок</span></button>
     <button class="mnb" id="mnb-rangers" onclick="setMoreTab('rangers',this)"><span class="mni">🤖</span><span class="mnl">Рейнджеры</span></button>
     <button class="mnb" id="mnb-online" onclick="setMoreTab('online',this)"><span class="mni">🌐</span><span class="mnl">Онлайн</span></button>
     <button class="mnb" id="mnb-events" onclick="setMoreTab('events',this)"><span class="mni">🌀</span><span class="mnl">События</span></button>
@@ -602,7 +601,6 @@ body::after{
 <script src="data.js"></script>
 <script src="state.js"></script>
 <script src="equipment_catalog.js"></script>
-<script src="market_catalog.js"></script>
 <script src="engine.js"></script>
 <script src="combat.js"></script>
 <script src="galaxy.js"></script>

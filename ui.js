@@ -163,7 +163,7 @@ function renderTrade(){
       <div class="mini-stat"><div class="l">Кредиты</div><div class="v">${fmt(G.cr)}</div></div>
       <div class="mini-stat"><div class="l">Трюм</div><div class="v">${used}/${G.cargoMax}</div></div>
       <div class="mini-stat"><div class="l">Закуплено</div><div class="v">${fmt(invValue)}</div></div>
-      <div class="mini-stat"><div class="l">Спрос</div><div class="v">${(sys.goods||[]).length} поз.</div></div>
+      <div class="mini-stat"><div class="l">Спрос</div><div class="v">${(typeof _sysGoods==='function'?_sysGoods(sys):(sys.goods||[])).length} поз.</div></div>
     </div>
   </div>
   <div class="section-shell"><div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
@@ -192,8 +192,11 @@ function renderTrade(){
   const marketGoods=typeof _sysGoods==='function'?_sysGoods(sys):(sys.goods||[]);
   marketGoods.forEach(gId=>{
     const gName=_goodName(gId),gIcon=_goodIcon(gId);
-    const price=G.prices[sys.id]?.[gId]||_goodBase(gId)||0;
-    if(!price) return;
+    // Price: use stored market price if available, else fall back to catalog base price
+    const storedP=G.prices[sys.id]?.[gId];
+    const baseP=_goodBase(gId)||0;
+    const price=storedP||baseP;
+    if(!price) return; // skip goods with truly no price data
     const hist=G.priceHistory[sys.id]?.[gId]||[];
     const trend=hist.length>1?(hist[hist.length-1]>hist[0]?'up':'dn'):'eq';
     const trendIcon=trend==='up'?'▲':trend==='dn'?'▼':'—';
@@ -418,7 +421,7 @@ function renderMoreTab(){
     else if(moreTab==='story')   { scr.innerHTML=renderStoryHTML(); }
     else if(moreTab==='events')  { scr.innerHTML=renderEventsHTML(); }
     else if(moreTab==='hangar')  { scr.innerHTML=renderHangarHTML(); }
-    else if(moreTab==='catalog') { scr.innerHTML=renderCatalogHTML(); }
+    else if(moreTab==='catalog') { scr.innerHTML=renderMarketHTML(); } // catalog → market
     else { scr.innerHTML='<div class="card">Раздел пока пуст.</div>'; }
   }catch(err){
     console.error('renderMoreTab failed', moreTab, err);
@@ -1207,7 +1210,7 @@ async function submitName(){
 })();
 
 // ── Startup ──
-initPrices();
+try{ initPrices(); } catch(e){ console.warn('initPrices failed:', e); }
 _uiReady = true;
 if(!G.playerName) showNameScreen();
 else { updateHUD(); renderMine(); refreshQuests(); }
