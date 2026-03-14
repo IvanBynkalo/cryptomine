@@ -953,15 +953,163 @@ function renderLandHTML(){
 
 // ── Story Chains HTML ──
 function renderStoryHTML(){
-  let h=`<div class="sh">📖 Сюжетные цепочки</div>`;
   const _chains=(typeof STORY_CHAINS!=='undefined'&&Array.isArray(STORY_CHAINS))?STORY_CHAINS:[];
   if(!_chains.length){
-    return h+`<div class="card" style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">
+    return `<div class="sh">📖 Сюжетные цепочки</div>
+    <div class="card" style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">
       <div style="font-size:32px;margin-bottom:8px">📖</div>
       Сюжетные цепочки появятся в следующем обновлении.
     </div>`;
   }
+  const diffColor={easy:'#00ff88',normal:'#00c8ff',hard:'#f59e0b',epic:'#ff2d78'};
+  const diffLabel={easy:'Лёгкая',normal:'Обычная',hard:'Сложная',epic:'Эпическая'};
+  const galName={alpha:'Альфа',beta:'Бета',gamma:'Гамма',chaos:'Хаос',delta:'Дельта',
+    nebula:'Туманность',belt:'Пояс',void:'Пустота',crystal:'Кристаллия',
+    inferno:'Инферно',omega:'Омега'};
+
+  // Split: available, locked by level, locked by galaxy
+  const available=[], lockedLvl=[], lockedGal=[];
   _chains.forEach(chain=>{
+    const lvlOk=(G.lvl||1)>=(chain.minLevel||1);
+    const galOk=!chain.startGal||G.gal===chain.startGal;
+    const prog=G.storyProgress[chain.id]||{step:0,done:false};
+    if(prog.done||prog.step>0){ available.push(chain); return; } // started/done always shown
+    if(!lvlOk){ lockedLvl.push(chain); return; }
+    if(!galOk){ lockedGal.push(chain); return; }
+    available.push(chain);
+  });
+
+  const renderChain=(chain,locked=false,lockReason='')=>{
+    const prog=G.storyProgress[chain.id]||{step:0,done:false};
+    const started=prog.step>0;
+    const done=prog.done;
+    const stepIdx=Math.max(0,prog.step-1);
+    const curStep=chain.steps[stepIdx];
+    const pct=done?100:Math.round((stepIdx/chain.steps.length)*100);
+    const dc=diffColor[chain.difficulty||'normal'];
+    const dl=diffLabel[chain.difficulty||'normal'];
+    const gn=galName[chain.startGal]||chain.startGal||'';
+    const totalReward=chain.steps.reduce((s,st)=>s+(st.reward||0),0);
+    const finalR=chain.steps.find(s=>s.final)?.finalReward||'';
+    const bonusCredits=finalR.startsWith('credits:')?parseInt(finalR.split(':')[1]):0;
+
+    let card=`<div class="card" style="margin-bottom:10px;opacity:${locked?0.55:1};
+      border-color:${done?'var(--green)':started?dc:locked?'var(--b1)':dc}44;
+      ${done?'background:rgba(0,255,136,.04)':started?`background:${dc}08`:''}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <div style="font-size:28px;filter:${locked?'grayscale(1)':'none'}">${chain.icon}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${chain.title}</div>
+          <div style="font-size:10px;color:var(--muted2);margin-top:1px">${chain.desc}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:9px;color:${dc};font-weight:700;text-transform:uppercase">${dl}</div>
+          <div style="font-size:9px;color:var(--muted2)">Ур.${chain.minLevel||1}+</div>
+        </div>
+      </div>`;
+
+    // Tags row
+    card+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+      <span style="font-size:9px;background:rgba(0,0,0,.3);border:1px solid var(--b1);border-radius:10px;padding:2px 7px;color:var(--muted2)">
+        🌌 ${gn}
+      </span>
+      <span style="font-size:9px;background:rgba(0,0,0,.3);border:1px solid var(--b1);border-radius:10px;padding:2px 7px;color:var(--muted2)">
+        📋 ${chain.steps.length} шага
+      </span>
+      <span style="font-size:9px;background:rgba(0,0,0,.3);border:1px solid ${dc}44;border-radius:10px;padding:2px 7px;color:${dc}">
+        💰 ${fmt(totalReward+bonusCredits)} кр
+      </span>
+    </div>`;
+
+    // Progress bar
+    card+=`<div style="height:3px;background:var(--b1);border-radius:2px;margin-bottom:8px">
+      <div style="height:100%;background:${dc};width:${pct}%;border-radius:2px;transition:width .3s"></div>
+    </div>`;
+
+    if(locked){
+      card+=`<div style="font-size:10px;color:var(--muted2)">🔒 ${lockReason}</div>`;
+    } else if(done){
+      card+=`<div style="font-size:11px;color:var(--green)">✅ Цепочка завершена!</div>`;
+    } else if(started&&curStep){
+      const canClaim=(curStep.type==='arrive'&&G.sys===curStep.sys)||
+        (curStep.type==='deliver'&&G.sys===curStep.sys&&(G.cargo[curStep.good]||0)>=curStep.amt)||
+        (curStep.type==='kill'&&(prog.killCount||0)>=curStep.count);
+      card+=`<div style="font-size:11px;color:${dc};margin-bottom:4px">
+          Шаг ${prog.step}/${chain.steps.length}: <b>${curStep.title}</b>
+        </div>
+        <div style="font-size:10px;color:var(--muted2);margin-bottom:6px">${curStep.desc}</div>`;
+      if(curStep.type==='deliver') card+=`<div style="font-size:10px;color:var(--gold);margin-bottom:5px">
+          📦 Нужно: ${curStep.amt}× ${_goodName(curStep.good)} → ${SYSTEMS.find(s=>s.id===curStep.sys)?.name||curStep.sys}
+          (в трюме: ${G.cargo[curStep.good]||0})</div>`;
+      if(curStep.type==='arrive') card+=`<div style="font-size:10px;color:var(--gold);margin-bottom:5px">
+          ✈️ Лети в: ${SYSTEMS.find(s=>s.id===curStep.sys)?.name||curStep.sys}
+          ${G.sys===curStep.sys?'<span style="color:var(--green)">✅ Вы здесь!</span>':''}</div>`;
+      if(curStep.type==='kill') card+=`<div style="font-size:10px;color:var(--gold);margin-bottom:5px">
+          ⚔️ Убито: ${prog.killCount||0}/${curStep.count}</div>`;
+      card+=`<div style="display:flex;gap:6px">
+        ${canClaim?`<button class="btn btn-sm btn-g" onclick="claimStoryStep('${chain.id}')">✅ Сдать шаг</button>`:''}
+        <span style="font-size:10px;color:var(--gold);align-self:center">+${fmt(curStep.reward)} кр за шаг</span>
+      </div>`;
+    } else {
+      // Not started
+      const startSysName=SYSTEMS.find(s=>s.id===chain.startSys)?.name||chain.startSys||'';
+      const inStartSys=G.sys===chain.startSys;
+      card+=`<div style="font-size:10px;color:var(--muted2);margin-bottom:6px">
+        📍 Старт: <b style="color:var(--cyan)">${startSysName}</b> (${gn})
+        ${inStartSys?'<span style="color:var(--green)"> — Вы здесь!</span>':''}
+      </div>`;
+      card+=`<button class="btn btn-sm btn-c" ${inStartSys?'':'disabled'}
+        onclick="startStoryChain('${chain.id}')">
+        ${inStartSys?'▶ Начать':'✈️ Прилети в '+startSysName}
+      </button>`;
+    }
+    card+=`</div>`;
+    return card;
+  };
+
+  let h='';
+
+  // Active/available chains
+  if(available.length){
+    const active=available.filter(c=>{ const p=G.storyProgress[c.id]; return p&&p.step>0&&!p.done; });
+    const done=available.filter(c=>G.storyProgress[c.id]?.done);
+    const ready=available.filter(c=>{ const p=G.storyProgress[c.id]; return !p||p.step===0; });
+
+    if(active.length){
+      h+=`<div class="sh">⚔️ Активные (${active.length})</div>`;
+      active.forEach(c=>{ h+=renderChain(c); });
+    }
+    if(ready.length){
+      h+=`<div class="sh">📋 Доступные (${ready.length})</div>`;
+      ready.forEach(c=>{ h+=renderChain(c); });
+    }
+    if(done.length){
+      h+=`<div class="sh">✅ Завершённые (${done.length})</div>`;
+      done.forEach(c=>{ h+=renderChain(c); });
+    }
+  }
+
+  // Locked by galaxy
+  if(lockedGal.length){
+    h+=`<div class="sh">🌌 Другие галактики (${lockedGal.length})</div>`;
+    lockedGal.slice(0,6).forEach(c=>{
+      const gn=galName[c.startGal]||c.startGal;
+      h+=renderChain(c,true,`Нужно прилететь в галактику ${gn}`);
+    });
+    if(lockedGal.length>6) h+=`<div style="font-size:10px;color:var(--muted2);padding:8px">+ ещё ${lockedGal.length-6} цепочек в других галактиках</div>`;
+  }
+
+  // Locked by level
+  if(lockedLvl.length){
+    h+=`<div class="sh">🔒 Недостаточно уровня (${lockedLvl.length})</div>`;
+    lockedLvl.slice(0,4).forEach(c=>{
+      h+=renderChain(c,true,`Требуется уровень ${c.minLevel}`);
+    });
+    if(lockedLvl.length>4) h+=`<div style="font-size:10px;color:var(--muted2);padding:8px">+ ещё ${lockedLvl.length-4} цепочек откроются с уровнем</div>`;
+  }
+
+  return h||`<div class="card" style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">Нет цепочек</div>`;
+}
     const prog=G.storyProgress[chain.id]||{step:0,done:false};
     const started=prog.step>0;
     const done=prog.done;
