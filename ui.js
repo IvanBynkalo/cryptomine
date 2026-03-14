@@ -302,6 +302,28 @@ function eqRarityColor(r){
   if(typeof RARITY_COLOR!=='undefined' && RARITY_COLOR[r]) return RARITY_COLOR[r];
   return {common:'#8899aa',enhanced:'#00c8ff',rare:'#a855f7',military:'#ff3a3a',experimental:'#ff9900',legendary:'#ffd700'}[r||'common']||'#8899aa';
 }
+function getEquipUnlockedSafe(item,state=G){
+  if(typeof getEquipUnlocked==='function') return getEquipUnlocked(item,state);
+  if(!item) return false;
+  if(item.levelRequired && (state.lvl||1) < item.levelRequired) return false;
+  if(item.honorRequired && (state.honor||0) < item.honorRequired) return false;
+  if(item.influenceRequired && (state.influence||0) < item.influenceRequired) return false;
+  return true;
+}
+function getEquipLockReasonSafe(item,state=G){
+  if(typeof getEquipLockReason==='function') return getEquipLockReason(item,state);
+  if(!item) return '';
+  const reasons=[];
+  if(item.levelRequired && (state.lvl||1) < item.levelRequired) reasons.push(`Уровень ${item.levelRequired}`);
+  if(item.honorRequired && (state.honor||0) < item.honorRequired) reasons.push(`Честь ${item.honorRequired}`);
+  if(item.influenceRequired && (state.influence||0) < item.influenceRequired) reasons.push(`Влияние ${item.influenceRequired}`);
+  if(item.rankRequired) reasons.push(`Ранг: ${item.rankRequired}`);
+  return reasons.join(' · ');
+}
+function getManufacturerIconSafe(mfr){
+  if(typeof MANUFACTURERS!=='undefined' && MANUFACTURERS?.[mfr]?.icon) return MANUFACTURERS[mfr].icon;
+  return '⚙️';
+}
 
 function setMoreTab(t,btn){
   // Highlight correct bottom nav button
@@ -1005,12 +1027,12 @@ function renderHangarHTML(){
   const eq=getEquipStats();
   let h=`<div class="sh">🚀 Ангар — ${hull?.name||'Без корпуса'}</div>`;
   // Ship summary card
-  h+=`<div class="card" style="border-color:${RARITY_COLOR[hull?.rarity||'common']}55;margin-bottom:10px">
+  h+=`<div class="card" style="border-color:${eqRarityColor(hull?.rarity||'common')}55;margin-bottom:10px">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
       <div style="font-size:42px">${hull?.icon||'🚀'}</div>
       <div>
         <div style="font-size:14px;font-weight:700">${hull?.name}</div>
-        <div style="font-size:10px;color:${RARITY_COLOR[hull?.rarity||'common']}">${hull?.rarity?.toUpperCase()||'COMMON'} · T${hull?.tier||1} · ${hull?.mfr||'—'}</div>
+        <div style="font-size:10px;color:${eqRarityColor(hull?.rarity||'common')}">${hull?.rarity?.toUpperCase()||'COMMON'} · T${hull?.tier||1} · ${hull?.mfr||'—'}</div>
         <div style="font-size:10px;color:var(--muted2)">${hull?.role||''} · ${hull?.desc||''}</div>
       </div>
     </div>
@@ -1147,15 +1169,15 @@ function renderCatalogHTML(){
   // Items list
   let items=getEquipSection(catalogFilter);
   if(catalogTier>0) items=items.filter(e=>e.tier===catalogTier);
-  if(catalogAvailOnly) items=items.filter(e=>getEquipUnlocked(e,G));
+  if(catalogAvailOnly) items=items.filter(e=>getEquipUnlockedSafe(e,G));
   if(catalogSearch) items=items.filter(e=>e.name.toLowerCase().includes(catalogSearch));
 
   const installed=G.equip;
   h+=`<div style="font-size:10px;color:var(--muted2);margin-bottom:6px">${items.length} предметов</div>`;
 
   items.forEach(item=>{
-    const unlocked=getEquipUnlocked(item,G);
-    const lockReason=unlocked?'':getEquipLockReason(item,G);
+    const unlocked=getEquipUnlockedSafe(item,G);
+    const lockReason=unlocked?'':getEquipLockReasonSafe(item,G);
     const rarColor=eqRarityColor(item.rarity||'common');
     const isEquipped=Object.values(G.equip).includes(item.id);
     const isOwned=G.owned_equip?.includes(item.id)||isEquipped;
@@ -1190,7 +1212,7 @@ function renderCatalogHTML(){
             <span style="font-size:9px;color:var(--muted2)">T${item.tier}</span>
             ${isEquipped?'<span style="font-size:9px;color:var(--green)">✅ Установлено</span>':''}
           </div>
-          <div style="font-size:9px;color:var(--muted2)">${MANUFACTURERS[item.mfr]?.icon||'⚙️'} ${item.mfr||''} · ${item.role||item.subcat}</div>
+          <div style="font-size:9px;color:var(--muted2)">${getManufacturerIconSafe(item.mfr)} ${item.mfr||''} · ${item.role||item.subcat}</div>
           <div style="font-size:10px;color:var(--muted2);margin-top:2px">${item.desc}</div>
           ${unlocked?'':'<div style="font-size:9px;color:var(--red);margin-top:2px">🔒 '+lockReason+'</div>'}
           <div style="font-size:9px;color:var(--muted2);margin-top:2px">
@@ -1213,7 +1235,7 @@ function renderCatalogHTML(){
 function equipCatalogItem(itemId){
   const item=getEquipCatalog().find(e=>e.id===itemId);
   if(!item) return;
-  if(!getEquipUnlocked(item,G)){toast('🔒 Заблокировано: '+getEquipLockReason(item,G),'bad');return;}
+  if(!getEquipUnlockedSafe(item,G)){toast('🔒 Заблокировано: '+getEquipLockReasonSafe(item,G),'bad');return;}
   if(item.price>0&&!G.owned_equip?.includes(itemId)){
     if(G.cr<item.price){toast(`💸 Нужно ${fmt(item.price)} кр`,'bad');return;}
     G.cr-=item.price;
