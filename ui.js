@@ -146,10 +146,14 @@ function renderMine(){
 
 // ── Trade screen ──
 function renderTrade(){
+  try{
   const sys=SYSTEMS.find(s=>s.id===G.sys);
+  if(!sys){ document.getElementById('trade-scr').innerHTML='<div class="card">Система не найдена</div>'; return; }
   G.cargoMax=calcCargoMax();
   const used=calcCargoUsed();
   const invValue=Object.entries(G.cargo).reduce((s,[gId,amt])=>s+((G.cargoCost?.[gId]||0)*amt),0);
+  // Compute marketGoods BEFORE template literal to avoid inline crashes
+  const _mktGoods=typeof _sysGoods==='function'?_sysGoods(sys):(sys.goods||[]);
   let h=`<div class="hero-panel trade-head">
     <div class="hero-top">
       <div>
@@ -163,7 +167,7 @@ function renderTrade(){
       <div class="mini-stat"><div class="l">Кредиты</div><div class="v">${fmt(G.cr)}</div></div>
       <div class="mini-stat"><div class="l">Трюм</div><div class="v">${used}/${G.cargoMax}</div></div>
       <div class="mini-stat"><div class="l">Закуплено</div><div class="v">${fmt(invValue)}</div></div>
-      <div class="mini-stat"><div class="l">Спрос</div><div class="v">${(typeof _sysGoods==='function'?_sysGoods(sys):(sys.goods||[])).length} поз.</div></div>
+      <div class="mini-stat"><div class="l">Спрос</div><div class="v">${_mktGoods.length} поз.</div></div>
     </div>
   </div>
   <div class="section-shell"><div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
@@ -174,7 +178,7 @@ function renderTrade(){
     inv.forEach(([gId,amt])=>{
       const def={name:_goodName(gId),icon:_goodIcon(gId)},price=G.prices[sys.id]?.[gId];
       const sell=price?Math.round(price*.9*(1+gSkill('trade')*.03)):null;
-      h+=`<div class="good-row"><div class="gi">${gIcon}</div>
+      h+=`<div class="good-row"><div class="gi">${def.icon}</div>
         <div class="ginfo"><div class="gname">${def.name} ×${amt}</div>
           ${sell?`<div class="gprice">Продать: ${fmt(sell)}/шт</div>`:`<div style="font-size:10px;color:var(--muted)">Нет спроса</div>`}
         </div><div class="gbtns">
@@ -189,7 +193,7 @@ function renderTrade(){
     });
   }
   h+=`<div class="sh">${sys.emoji} ${sys.name} — Рынок</div>`;
-  const marketGoods=typeof _sysGoods==='function'?_sysGoods(sys):(sys.goods||[]);
+  const marketGoods=_mktGoods; // already computed above
   marketGoods.forEach(gId=>{
     const gName=_goodName(gId),gIcon=_goodIcon(gId);
     // Price: use stored market price if available, else fall back to catalog base price
@@ -221,6 +225,14 @@ function renderTrade(){
   document.getElementById('t-cargo').textContent=`${used}/${G.cargoMax}`;
   document.getElementById('t-loc').textContent=sys.name;
   document.getElementById('t-time').textContent=timeStr();
+  }catch(err){
+    console.error('renderTrade error:',err);
+    const scr=document.getElementById('trade-scr');
+    if(scr) scr.innerHTML=`<div class="card" style="border-color:rgba(255,58,58,.35)">
+      <div style="font-weight:700;color:var(--red);margin-bottom:6px">⚠️ Ошибка рендера торговли</div>
+      <div style="font-size:11px;color:var(--muted2)">${String(err&&err.message||err)}</div>
+    </div>`;
+  }
 }
 
 // ── Quest screen ──
