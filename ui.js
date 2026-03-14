@@ -6,17 +6,17 @@
 // _goodBase, _goodName, _goodIcon, _sysGoods → engine.js (loaded before ui.js)
 // Fallback definitions in case engine.js helpers are not yet available:
 if(typeof _goodBase==='undefined') window._goodBase=function(gId){
-  if(globalThis.GOODS&&GOODS[gId]) return GOODS[gId].base||0;
+  if(typeof GOODS!=='undefined'&&GOODS[gId]) return GOODS[gId].base||0;
   const it=globalThis.MARKET_BY_ID?.[gId]||(globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
   return it?.basePrice||it?.base||0;
 };
 if(typeof _goodName==='undefined') window._goodName=function(gId){
-  if(globalThis.GOODS&&GOODS[gId]) return GOODS[gId].name||gId;
+  if(typeof GOODS!=='undefined'&&GOODS[gId]) return GOODS[gId].name||gId;
   const it=globalThis.MARKET_BY_ID?.[gId]||(globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
   return it?.name||gId;
 };
 if(typeof _goodIcon==='undefined') window._goodIcon=function(gId){
-  if(globalThis.GOODS&&GOODS[gId]) return GOODS[gId].icon||'📦';
+  if(typeof GOODS!=='undefined'&&GOODS[gId]) return GOODS[gId].icon||'📦';
   const it=globalThis.MARKET_BY_ID?.[gId]||(globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
   return it?.icon||'📦';
 };

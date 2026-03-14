@@ -3,17 +3,17 @@
 // ═══════════════════════════════════════
 // ── Goods helpers — work for both GOODS (legacy) and MARKET_CATALOG ──
 function _goodBase(gId){
-  if(globalThis.GOODS && GOODS[gId]) return GOODS[gId].base || 0;
+  if(typeof GOODS!=='undefined' && GOODS[gId]) return GOODS[gId].base || 0;
   const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
   return it?.basePrice || it?.base || 0;
 }
 function _goodName(gId){
-  if(globalThis.GOODS && GOODS[gId]) return GOODS[gId].name || gId;
+  if(typeof GOODS!=='undefined' && GOODS[gId]) return GOODS[gId].name || gId;
   const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
   return it?.name || gId;
 }
 function _goodIcon(gId){
-  if(globalThis.GOODS && GOODS[gId]) return GOODS[gId].icon || '📦';
+  if(typeof GOODS!=='undefined' && GOODS[gId]) return GOODS[gId].icon || '📦';
   const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
   return it?.icon || '📦';
 }
