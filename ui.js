@@ -1149,11 +1149,11 @@ function _fmtStats(stats){
 }
 function renderCatalogHTML(){
   const cats=[
-    {id:'hull',   label:'Корпуса',     icon:'🚀', count:getEquipSection('hull').length},
-    {id:'weapon', label:'Оружие',      icon:'⚔️', count:getEquipSection('weapon').length},
+    {id:'hull',   label:'Корпуса',     icon:'🛸', count:getEquipSection('hull').length},
+    {id:'weapon', label:'Оружие',      icon:'🔫', count:getEquipSection('weapon').length},
     {id:'defense',label:'Защита',      icon:'🛡️', count:getEquipSection('defense').length},
     {id:'engine', label:'Двигатели',   icon:'🔥', count:getEquipSection('engine').length},
-    {id:'specmod',label:'Спецмодули',  icon:'🔬', count:getEquipSection('specmod').length},
+    {id:'specmod',label:'Спецмодули',  icon:'⚙️', count:getEquipSection('specmod').length},
     {id:'support',label:'Дроны',       icon:'🤖', count:getEquipSection('support').length},
   ];
 
@@ -1170,12 +1170,13 @@ function renderCatalogHTML(){
   });
   h+=`</div>`;
 
-  // Tier filter
-  h+=`<div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
-    ${[0,1,2,3,4,5,6].map(t=>`<button class="btn btn-sm ${catalogTier===t?'btn-c':''}" style="font-size:10px;min-width:36px"
-      onclick="catalogTier=${t};renderMoreTab()">${t===0?'Все':'T'+t}</button>`).join('')}
-    <button class="btn btn-sm ${catalogAvailOnly?'btn-g':''}" style="font-size:10px;margin-left:auto"
-      onclick="catalogAvailOnly=!catalogAvailOnly;renderMoreTab()">✅ Только доступные</button>
+  // Tier filter with proper names
+  const tierNames=['Все','Лёгкие','Средние','Тяжёлые','Военные','Экспер.','Легенд.'];
+  h+=`<div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;overflow-x:auto">
+    ${[0,1,2,3,4,5,6].map(t=>`<button class="btn btn-sm ${catalogTier===t?'btn-c':''}" style="font-size:10px;min-width:60px;white-space:nowrap"
+      onclick="catalogTier=${t};renderMoreTab()">${tierNames[t]||'T'+t}</button>`).join('')}
+    <button class="btn btn-sm ${catalogAvailOnly?'btn-g':''}" style="font-size:10px;white-space:nowrap"
+      onclick="catalogAvailOnly=!catalogAvailOnly;renderMoreTab()">✅ Доступные</button>
   </div>`;
 
   // Items list
