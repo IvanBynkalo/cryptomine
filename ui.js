@@ -43,24 +43,27 @@ function goTo(name,btn){
 
 // haptic/hapticN/tg → globals.js
 
-
-function uiMarketDef(gId){
-  if(typeof getMarketGoodDef==='function') return getMarketGoodDef(gId);
-  if(globalThis.GOODS && GOODS[gId]) return GOODS[gId];
-  const it=globalThis.MARKET_BY_ID?.[gId];
-  if(it) return {id:it.id,name:it.name,icon:it.icon||'📦',base:it.basePrice||0,category:it.category,volume:it.volume||1};
-  return {id:gId,name:gId,icon:'📦',base:0,category:'misc',volume:1};
-}
-function uiSystemMarketGoods(sys){
-  if(typeof getSystemMarketGoods==='function') return getSystemMarketGoods(sys);
-  return sys?.goods||[];
-}
-
 // ── Mine screen ──
 function renderMine(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   G.maxHull=calcMaxHull();G.cargoMax=calcCargoMax();
   const cp=calcClickPower(),cps=calcCPS(),need=xpForLvl(G.lvl);
+  // Event banner
+  const evBanner=document.getElementById('event-banner');
+  if(evBanner){
+    if(G.activeEvent){
+      evBanner.style.display='block';
+      evBanner.innerHTML=`<span style="font-size:15px">${G.activeEvent.icon}</span> <b>${G.activeEvent.name}</b> <span style="font-size:10px;opacity:.8">${G.activeEvent.desc}</span>`;
+    } else { evBanner.style.display='none'; }
+  }
+  // Anomaly badges on mine screen
+  const anom=document.getElementById('anomaly-badges');
+  if(anom&&G.anomaliesActive?.length){
+    anom.style.display='block';
+    anom.innerHTML=(G.anomaliesActive||[]).filter(a=>a.sysId===G.sys).map(a=>
+      `<button class="btn btn-sm" style="background:rgba(168,85,247,.2);border-color:var(--purple);font-size:11px"
+        onclick="exploreAnomaly('${a.id}')">${a.icon} ${a.name}</button>`).join('');
+  } else if(anom) anom.style.display='none';
   document.getElementById('m-cred').textContent=fmt(G.cr);
   document.getElementById('m-cps').textContent=cps>0?`+${fmt(cps)}/сек`:'нет авто-добычи';
   document.getElementById('m-lvl').textContent=G.lvl;
@@ -85,8 +88,9 @@ function renderMine(){
     const owned=G.helpers[h.id]||0;
     const cost=Math.round(h.cost*Math.pow(h.costM,owned));
     const ok=G.cr>=cost;
-    hg.innerHTML+=`<div class="card${ok?' glow-c':''}">
-      <div style="font-size:24px;margin-bottom:4px">${h.icon}</div>
+    hg.innerHTML+=`<div class="card${ok?' glow-c':''}" style="position:relative">
+      <div class="helper-card-accent"></div>
+      <div style="font-size:24px;margin-bottom:6px">${h.icon}</div>
       <div style="font-size:12px;font-weight:700">${h.name}</div>
       <div style="font-size:10px;color:var(--muted2);margin-bottom:6px">+${h.cps}/сек</div>
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -121,34 +125,32 @@ function renderTrade(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
   G.cargoMax=calcCargoMax();
   const used=calcCargoUsed();
-  const invValue=Object.entries(G.cargo).reduce((sum,[gId,amt])=>sum+((G.cargoCost?.[gId]||0)*amt),0);
-  const marketGoods=uiSystemMarketGoods(sys);
+  const invValue=Object.entries(G.cargo).reduce((s,[gId,amt])=>s+((G.cargoCost?.[gId]||0)*amt),0);
   let h=`<div class="hero-panel trade-head">
     <div class="hero-top">
       <div>
-        <div class="hero-kicker">рыночный терминал · ${sys.name}</div>
+        <div class="hero-kicker">торговый терминал · ${sys.name}</div>
         <div class="hero-title">Рынок системы ${sys.emoji}</div>
-        <div class="hero-sub">Ассортимент зависит от системы. Каталог рынка подключён поверх старой экономики без слома основной логики.</div>
+        <div class="hero-sub">Покупай ниже рынка, вези в дефицитные зоны и контролируй среднюю цену груза прямо из трюма.</div>
       </div>
-      <div class="hero-icon">🏪</div>
+      <div class="hero-icon">💱</div>
     </div>
     <div class="mini-grid">
       <div class="mini-stat"><div class="l">Кредиты</div><div class="v">${fmt(G.cr)}</div></div>
       <div class="mini-stat"><div class="l">Трюм</div><div class="v">${used}/${G.cargoMax}</div></div>
       <div class="mini-stat"><div class="l">Закуплено</div><div class="v">${fmt(invValue)}</div></div>
-      <div class="mini-stat"><div class="l">Ассортимент</div><div class="v">${marketGoods.length} поз.</div></div>
+      <div class="mini-stat"><div class="l">Спрос</div><div class="v">${sys.goods.length} поз.</div></div>
     </div>
   </div>
   <div class="section-shell"><div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
-    <div class="bar-tr"><div class="bar-f" style="width:${Math.min(100,used/G.cargoMax*100)}%;background:linear-gradient(90deg,var(--amber),var(--gold))"></div></div></div></div>`;
-
+    <div class="bar-tr"><div class="bar-f" style="width:${used/G.cargoMax*100}%;background:linear-gradient(90deg,var(--amber),var(--gold))"></div></div></div></div>`;
   const inv=Object.entries(G.cargo).filter(([,v])=>v>0);
   if(inv.length){
     h+=`<div class="sh">Ваш груз</div>`;
     inv.forEach(([gId,amt])=>{
-      const def=uiMarketDef(gId), price=G.prices[sys.id]?.[gId];
+      const def=GOODS[gId],price=G.prices[sys.id]?.[gId];
       const sell=price?Math.round(price*.9*(1+gSkill('trade')*.03)):null;
-      h+=`<div class="good-row"><div class="gi">${def.icon||'📦'}</div>
+      h+=`<div class="good-row"><div class="gi">${def.icon}</div>
         <div class="ginfo"><div class="gname">${def.name} ×${amt}</div>
           ${sell?`<div class="gprice">Продать: ${fmt(sell)}/шт</div>`:`<div style="font-size:10px;color:var(--muted)">Нет спроса</div>`}
         </div><div class="gbtns">
@@ -162,10 +164,9 @@ function renderTrade(){
         </div></div>`;
     });
   }
-
   h+=`<div class="sh">${sys.emoji} ${sys.name} — Рынок</div>`;
-  marketGoods.forEach(gId=>{
-    const def=uiMarketDef(gId), price=G.prices[sys.id]?.[gId] ?? def.base ?? 0;
+  sys.goods.forEach(gId=>{
+    const def=GOODS[gId],price=G.prices[sys.id]?.[gId]||def.base;
     const hist=G.priceHistory[sys.id]?.[gId]||[];
     const trend=hist.length>1?(hist[hist.length-1]>hist[0]?'up':'dn'):'eq';
     const trendIcon=trend==='up'?'▲':trend==='dn'?'▼':'—';
@@ -173,11 +174,11 @@ function renderTrade(){
     const buyP=Math.round(price*(1-gSkill('eloquence')*.02));
     const canBuy=G.cr>=buyP&&used<G.cargoMax;
     const owned=G.cargo[gId]||0;
-    h+=`<div class="good-row"><div class="gi">${def.icon||'📦'}</div>
+    h+=`<div class="good-row"><div class="gi">${def.icon}</div>
       <div class="ginfo">
         <div class="gname">${def.name}</div>
         <div class="gprice">💰 ${fmt(price)}${buyP<price?` <span style="color:var(--green)">(${fmt(buyP)})</span>`:''}</div>
-        <div style="font-size:9px;color:${trendCol}">${trendIcon} ${trend==='up'?'Растёт':trend==='dn'?'Падает':'Стабильно'} · ${(def.category||'').toUpperCase()}</div>
+        <div style="font-size:9px;color:${trendCol}">${trendIcon} ${trend==='up'?'Растёт':trend==='dn'?'Падает':'Стабильно'}</div>
         ${owned?`<div style="font-size:9px;color:var(--muted2)">Имеется: ${owned}</div>`:''}
       </div><div class="gbtns">
         <button class="btn btn-sm btn-g" onclick="buyGood('${gId}')" ${canBuy?'':'disabled'}>×1</button>
@@ -195,7 +196,22 @@ function renderTrade(){
 // ── Quest screen ──
 function renderQuests(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
-  let h=`<div class="sh">Мэры — ${sys.name}</div>`;
+  const readyCount=G.quests.filter(q=>q.accepted&&!q.done&&((q.type==='deliver'&&G.sys===q.need.destSys&&(G.cargo?.[q.need.good]||0)>=q.need.amt)||(q.type==='kill'&&(q.progress||0)>=(q.need?.count||1)&&G.sys===q.sysId)||(q.type==='collect'&&(q.progress||0)>=(q.need?.count||1)&&G.sys===q.sysId))).length;
+  let h=`<div class="hero-panel quest-head">
+    <div class="hero-top">
+      <div>
+        <div class="hero-kicker">контрактный центр · ${sys.name}</div>
+        <div class="hero-title">Задания и поручения</div>
+        <div class="hero-sub">Бери контракты у мэров, отслеживай прогресс и сдавай миссии без лишнего поиска по интерфейсу.</div>
+      </div>
+      <div class="hero-icon">📡</div>
+    </div>
+    <div class="banner-line">
+      <span class="pill">📍 Текущая система: ${sys.name}</span>
+      <span class="pill">✅ Готово к сдаче: ${readyCount}</span>
+      <span class="pill">🗂 Активных: ${G.quests.filter(q=>q.accepted&&!q.done).length}</span>
+    </div>
+  </div><div class="sh">Мэры — ${sys.name}</div>`;
   const localMayors=MAYORS.filter(m=>m.sysId===G.sys);
   if(!localMayors.length){
     h+=`<div class="card" style="color:var(--muted2);font-size:12px">В этой системе нет мэра.</div>`;
@@ -212,29 +228,48 @@ function renderQuests(){
   h+=`<div class="sh">Задания в этой системе (${active.length})</div>`;
   if(!active.length) h+=`<div class="card" style="color:var(--muted2);font-size:12px">Нет заданий. Летите в другие системы или подождите нового дня.</div>`;
   active.forEach(q=>{
-    const prog=q.progress||0,total=q.need?.amt||q.need?.count||1;
+    const total=q.need?.amt||q.need?.count||1;
+    const prog=q.type==='deliver'?(G.sys===q.need.destSys?Math.min(total,G.cargo?.[q.need.good]||0):(q.progress||0)):(q.progress||0);
+    const canClaimDeliver=q.accepted&&q.type==='deliver'&&G.sys===q.need.destSys&&(G.cargo?.[q.need.good]||0)>=q.need.amt;
+    const canClaimKill=q.accepted&&q.type==='kill'&&prog>=total;
+    const canClaimCollect=q.accepted&&q.type==='collect'&&prog>=total;
     h+=`<div class="quest-card${q.accepted?' active':''}">
       <div class="qc-type" style="color:${q.color}">${q.icon} ${q.type==='deliver'?'ДОСТАВКА':q.type==='kill'?'УНИЧТОЖЕНИЕ':'СБОР'}</div>
       <div class="qc-name">${q.title}</div>
       <div class="quest-giver">${q.giverIcon} ${q.giver}</div>
       <div class="qc-desc">${q.desc}</div>
-      ${q.accepted?`<div class="qc-prog">Прогресс: ${prog}/${total}</div>
+      ${q.accepted?`<div class="qc-prog">Прогресс: ${prog}/${total}${q.type==='deliver'&&G.sys===q.need.destSys?` · В трюме: ${G.cargo?.[q.need.good]||0}`:''}</div>
         <div class="bar-tr" style="margin-bottom:8px"><div class="bar-f bf-xp" style="width:${Math.min(100,prog/total*100)}%"></div></div>`:''}
       <div class="qc-reward">🏆 ${fmt(q.reward)} кр · +${q.xp} XP · +${q.rp} НО</div>
-      <div style="margin-top:8px;display:flex;gap:6px">
-        ${!q.accepted?`<button class="btn btn-sm btn-c" onclick="acceptCollect('${q.id}')">Принять</button>`:''}
-        ${q.accepted&&q.type==='kill'?`<button class="btn btn-sm btn-g" onclick="claimKillQuest('${q.id}')" ${prog>=total?'':'disabled'}>Сдать</button>`:''}
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        ${!q.accepted?`<button class="btn btn-sm btn-c" onclick="acceptQuest('${q.id}')">Принять</button>`:''}
+        ${canClaimDeliver?`<button class="btn btn-sm btn-g" onclick="claimDeliverQuest('${q.id}')">Сдать груз</button>`:''}
+        ${q.accepted&&q.type==='deliver'&&!canClaimDeliver&&G.sys===q.need.destSys?`<span style="font-size:10px;color:var(--muted2)">Нужно ${q.need.amt}× ${GOODS[q.need.good].name} в трюме</span>`:''}
+        ${q.accepted&&q.type==='deliver'&&G.sys!==q.need.destSys?`<span style="font-size:10px;color:var(--muted2)">Пункт назначения: ${SYSTEMS.find(s=>s.id===q.need.destSys)?.name||q.need.destSys}</span>`:''}
+        ${canClaimKill?`<button class="btn btn-sm btn-g" onclick="claimKillQuest('${q.id}')">Сдать</button>`:''}
+        ${canClaimCollect?`<button class="btn btn-sm btn-g" onclick="claimCollectQuest('${q.id}')">Сдать</button>`:''}
         ${q.expires?`<span style="font-size:9px;color:var(--muted2)">Истекает: День ${q.expires}</span>`:''}
       </div></div>`;
   });
   if(elsewhere.length){
     h+=`<div class="sh">Активные задания</div>`;
     elsewhere.forEach(q=>{
-      const prog=q.progress||0,total=q.need?.amt||q.need?.count||1;
+      const total=q.need?.amt||q.need?.count||1;
+      const prog=q.type==='deliver'?(G.sys===q.need.destSys?Math.min(total,G.cargo?.[q.need.good]||0):(q.progress||0)):(q.progress||0);
+      const canClaimDeliver=q.accepted&&q.type==='deliver'&&G.sys===q.need.destSys&&(G.cargo?.[q.need.good]||0)>=q.need.amt;
+      const canClaimKill=q.accepted&&q.type==='kill'&&prog>=total&&G.sys===q.sysId;
+      const canClaimCollect=q.accepted&&q.type==='collect'&&prog>=total&&G.sys===q.sysId;
       h+=`<div class="quest-card active">
         <div class="qc-type" style="color:${q.color}">${q.icon} ${q.title}</div>
         <div class="qc-desc">${q.desc}</div>
-        <div class="qc-prog">${prog}/${total}</div></div>`;
+        <div class="qc-prog">${prog}/${total} · Выдано в: ${SYSTEMS.find(s=>s.id===q.sysId)?.name||q.sysId}</div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          ${canClaimDeliver?`<button class="btn btn-sm btn-g" onclick="claimDeliverQuest('${q.id}')">Сдать груз</button>`:''}
+          ${canClaimKill?`<button class="btn btn-sm btn-g" onclick="claimKillQuest('${q.id}')">Сдать</button>`:''}
+          ${canClaimCollect?`<button class="btn btn-sm btn-g" onclick="claimCollectQuest('${q.id}')">Сдать</button>`:''}
+          ${q.type==='deliver'&&G.sys===q.need.destSys&&!canClaimDeliver?`<span style="font-size:10px;color:var(--muted2)">Нужно ${q.need.amt}× ${GOODS[q.need.good].name} в трюме</span>`:''}
+          ${q.type!=='deliver'&&prog>=total&&G.sys!==q.sysId?`<span style="font-size:10px;color:var(--muted2)">Вернитесь в систему выдачи для сдачи</span>`:''}
+        </div></div>`;
     });
   }
   document.getElementById('quest-scr').innerHTML=h;
@@ -249,10 +284,87 @@ let moreTab='combat';
 let activeTechCat='weapons';
 let marketCat='hull';
 
+function getEquipCatalog(){
+  if(typeof EQUIPMENT_CATALOG!=='undefined' && Array.isArray(EQUIPMENT_CATALOG)) return EQUIPMENT_CATALOG;
+  if(typeof EQUIPMENT!=='undefined' && Array.isArray(EQUIPMENT)) return EQUIPMENT;
+  return [];
+}
+function getEquipSection(cat){
+  if(cat==='hull') return (typeof HULLS_CATALOG!=='undefined'&&Array.isArray(HULLS_CATALOG))?HULLS_CATALOG:getEquipCatalog().filter(e=>e.cat==='hull');
+  if(cat==='weapon') return (typeof WEAPONS_CATALOG!=='undefined'&&Array.isArray(WEAPONS_CATALOG))?WEAPONS_CATALOG:getEquipCatalog().filter(e=>e.cat==='weapon');
+  if(cat==='defense') return (typeof SHIELDS_CATALOG!=='undefined'&&Array.isArray(SHIELDS_CATALOG))?SHIELDS_CATALOG:getEquipCatalog().filter(e=>e.cat==='defense' || e.cat==='shield');
+  if(cat==='engine') return (typeof ENGINES_CATALOG!=='undefined'&&Array.isArray(ENGINES_CATALOG))?ENGINES_CATALOG:getEquipCatalog().filter(e=>e.cat==='engine');
+  if(cat==='specmod') return (typeof SPECMODS_CATALOG!=='undefined'&&Array.isArray(SPECMODS_CATALOG))?SPECMODS_CATALOG:getEquipCatalog().filter(e=>e.cat==='specmod');
+  if(cat==='support') return (typeof DRONES_CATALOG!=='undefined'&&Array.isArray(DRONES_CATALOG))?DRONES_CATALOG:getEquipCatalog().filter(e=>e.cat==='support');
+  return getEquipCatalog().filter(e=>e.cat===cat);
+}
+function eqRarityColor(r){
+  if(typeof RARITY_COLOR!=='undefined' && RARITY_COLOR[r]) return RARITY_COLOR[r];
+  return {common:'#8899aa',enhanced:'#00c8ff',rare:'#a855f7',military:'#ff3a3a',experimental:'#ff9900',legendary:'#ffd700'}[r||'common']||'#8899aa';
+}
+function getEquipUnlockedSafe(item,state=G){
+  if(typeof getEquipUnlocked==='function') return getEquipUnlocked(item,state);
+  if(!item) return false;
+  if(item.levelRequired && (state.lvl||1) < item.levelRequired) return false;
+  if(item.honorRequired && (state.honor||0) < item.honorRequired) return false;
+  if(item.influenceRequired && (state.influence||0) < item.influenceRequired) return false;
+  return true;
+}
+function getEquipLockReasonSafe(item,state=G){
+  if(typeof getEquipLockReason==='function') return getEquipLockReason(item,state);
+  if(!item) return '';
+  const reasons=[];
+  if(item.levelRequired && (state.lvl||1) < item.levelRequired) reasons.push(`Уровень ${item.levelRequired}`);
+  if(item.honorRequired && (state.honor||0) < item.honorRequired) reasons.push(`Честь ${item.honorRequired}`);
+  if(item.influenceRequired && (state.influence||0) < item.influenceRequired) reasons.push(`Влияние ${item.influenceRequired}`);
+  if(item.rankRequired) reasons.push(`Ранг: ${item.rankRequired}`);
+  return reasons.join(' · ');
+}
+function getManufacturerKeySafe(item){
+  return item?.manufacturer || item?.mfr || '';
+}
+function getManufacturerIconSafe(mfr){
+  if(typeof MANUFACTURERS!=='undefined' && MANUFACTURERS?.[mfr]?.icon) return MANUFACTURERS[mfr].icon;
+  return '⚙️';
+}
+function getManufacturerNameSafe(item){
+  const key=getManufacturerKeySafe(item);
+  if(typeof MANUFACTURERS!=='undefined' && MANUFACTURERS?.[key]?.name) return MANUFACTURERS[key].name;
+  return key || 'Без марки';
+}
+function getItemPriceSafe(item){
+  return Number(item?.price ?? item?.cost ?? 0) || 0;
+}
+function getEventListSafe(){
+  return (typeof RANDOM_EVENTS!=='undefined' && Array.isArray(RANDOM_EVENTS)) ? RANDOM_EVENTS : [];
+}
+function getAnomalyListSafe(){
+  return (typeof ANOMALIES!=='undefined' && Array.isArray(ANOMALIES)) ? ANOMALIES : [];
+}
+
 function setMoreTab(t,btn){
-  document.querySelectorAll('.sc-more .tc-btn').forEach(b=>b.classList.remove('on'));
-  btn?.classList.add('on'); moreTab=t;
+  // Highlight correct bottom nav button
+  document.querySelectorAll('.mnb').forEach(b=>b.classList.remove('on'));
+  const nb=document.getElementById('mnb-'+t);
+  if(nb) nb.classList.add('on');
+  // Hide extra row if clicking main item
+  const extraIds=['police','land','story','debris'];
+  if(!extraIds.includes(t)){
+    const ex=document.getElementById('more-extra');
+    if(ex) ex.style.display='none';
+  }
+  moreTab=t;
   renderMoreTab();
+}
+
+function toggleMoreSubnav(){
+  const ex=document.getElementById('more-extra');
+  if(!ex) return;
+  const visible=ex.style.display==='grid';
+  ex.style.display=visible?'none':'grid';
+  // highlight ••• button
+  const btn=document.getElementById('mnb-more2');
+  if(btn) btn.classList.toggle('on',!visible);
 }
 function setTechCat(c,btn){
   document.querySelectorAll('.tech-cats .tc-btn').forEach(b=>b.classList.remove('on'));
@@ -266,15 +378,25 @@ function setMarketCat(c,btn){
 function renderMoreTab(){
   const scr=document.getElementById('more-scr');
   if(!scr) return;
-  if(moreTab==='combat')  { scr.innerHTML=renderCombatHTML(); }
-  else if(moreTab==='tech')    { scr.innerHTML=renderTechHTML(); }
-  else if(moreTab==='skills')  { scr.innerHTML=renderSkillsHTML(); }
-  else if(moreTab==='market')  { scr.innerHTML=renderMarketHTML(); }
-  else if(moreTab==='rangers') { scr.innerHTML=renderRangersHTML(); }
-  else if(moreTab==='debris')  { scr.innerHTML=renderDebrisHTML(); }
-  else if(moreTab==='online')  { renderOnlineRangers(); return; } // async
-  else if(moreTab==='police')  { scr.innerHTML=renderPoliceHTML(); }
-  else if(moreTab==='land')    { scr.innerHTML=renderLandHTML(); }
+  try{
+    if(moreTab==='combat')  { scr.innerHTML=renderCombatHTML(); }
+    else if(moreTab==='tech')    { scr.innerHTML=renderTechHTML(); }
+    else if(moreTab==='skills')  { scr.innerHTML=renderSkillsHTML(); }
+    else if(moreTab==='market')  { scr.innerHTML=renderMarketHTML(); }
+    else if(moreTab==='rangers') { scr.innerHTML=renderRangersHTML(); }
+    else if(moreTab==='debris')  { scr.innerHTML=renderDebrisHTML(); }
+    else if(moreTab==='online')  { renderOnlineRangers(); return; }
+    else if(moreTab==='police')  { scr.innerHTML=renderPoliceHTML(); }
+    else if(moreTab==='land')    { scr.innerHTML=renderLandHTML(); }
+    else if(moreTab==='story')   { scr.innerHTML=renderStoryHTML(); }
+    else if(moreTab==='events')  { scr.innerHTML=renderEventsHTML(); }
+    else if(moreTab==='hangar')  { scr.innerHTML=renderHangarHTML(); }
+    else if(moreTab==='catalog') { scr.innerHTML=renderCatalogHTML(); }
+    else { scr.innerHTML='<div class="card">Раздел пока пуст.</div>'; }
+  }catch(err){
+    console.error('renderMoreTab failed', moreTab, err);
+    scr.innerHTML=`<div class="card" style="border-color:rgba(255,58,58,.35)"><div style="font-weight:700;color:var(--red);margin-bottom:6px">⚠️ Раздел временно не открылся</div><div style="font-size:11px;color:var(--muted2);line-height:1.5">Модуль: <b>${moreTab}</b><br>${String(err&&err.message||err)}</div></div>`;
+  }
   document.getElementById('mo-cred').textContent=fmt(G.cr);
   document.getElementById('mo-rp').textContent=fmt(Math.floor(G.rp));
   document.getElementById('mo-hull').textContent=Math.floor(G.hull/G.maxHull*100)+'%';
@@ -286,13 +408,27 @@ function renderCombatHTML(){
   let h='';
   if(!G.combat){
     const sys=SYSTEMS.find(s=>s.id===G.sys);
-    h+=`<div class="card" style="text-align:center;padding:20px">
+    h+=`<div class="hero-panel more-head">
+      <div class="hero-top">
+        <div>
+          <div class="hero-kicker">боевой контур · ${sys.name}</div>
+          <div class="hero-title">Сектор напряжённости</div>
+          <div class="hero-sub">Оцени пиратскую активность, состояние корабля и вступай в бой только когда готов.</div>
+        </div>
+        <div class="hero-icon">⚔️</div>
+      </div>
+      <div class="banner-line">
+        <span class="pill">☠️ Пираты: ${Math.round(sys.pc*100)}%</span>
+        <span class="pill">🛡 Корпус: ${Math.floor(G.hull/G.maxHull*100)}%</span>
+        <span class="pill">🚀 Ракеты: ${G.missiles}</span>
+      </div>
+    </div><div class="card" style="text-align:center;padding:20px">
       <div style="font-size:48px;margin-bottom:8px">🛸</div>
       <div style="font-size:13px;color:var(--muted2);margin-bottom:12px">
         <b style="color:var(--cyan)">${sys.name}</b> — пиратская активность: ${Math.round(sys.pc*100)}%
       </div>
       <button class="btn btn-r btn-full" onclick="findEnemy()">🔍 Искать противника</button>
-      ${alienInvasion?`<button class="btn btn-full" style="background:rgba(255,45,120,.15);border-color:#ff2d78;color:#ff2d78;margin-top:8px" onclick="fightAlien()">👽 Атаковать вторженцев!</button>`:''}
+      ${currentAlienInvasion()?(()=>{ const inv=currentAlienInvasion(); const wave=(inv.alienIds||[]).map(id=>ALIEN_TYPES.find(a=>a.id===id)).filter(Boolean); const scouts=wave.filter(a=>(a.threat||1)<=1); const elites=wave.filter(a=>(a.threat||1)===2); const commanders=wave.filter(a=>(a.threat||1)>=3); const boss=ALIEN_TYPES.find(a=>a.id===inv.bossId); const progress=Math.round(((inv.progress||0)/Math.max(1,inv.totalTargets||1))*100); const grp=(arr,title,col)=>arr.length?`<div style="margin-top:8px"><div style="font-size:10px;font-weight:800;color:${col};margin-bottom:4px">${title} · ${arr.length}</div>${arr.map((a,i)=>`<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px;border-color:${a.color||'#ff2d78'}33;background:rgba(255,255,255,.03)"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px;filter:drop-shadow(0 0 8px ${a.color||'#ff2d78'}88)">${a.icon}</div><div><div style="font-size:12px;font-weight:700;color:${a.color||'#ff2d78'}">${a.name}</div><div style="font-size:10px;color:var(--muted2)">Угроза ${a.threat||1} · ХП ${a.maxHp} · Награда ${fmt(a.reward)}</div></div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,45,120,.15);border-color:#ff2d78;color:#ff2d78" onclick="fightAlien('${a.id}')">Бой</button>${i===0?`<button class="btn btn-sm btn-c" onclick="coopRaid('${a.id}')">Кооп</button>`:''}</div></div>`).join('')}</div>`:''; return `<div class="card" style="margin-top:8px;border-color:#ff2d7833;background:linear-gradient(180deg,rgba(255,45,120,.14),rgba(9,12,24,.65))"><div style="font-size:12px;font-weight:800;color:#ff73ac">⚠️ Вторжение в ${SYSTEMS.find(s=>s.id===inv.sysId)?.name||'неизвестной системе'}</div><div style="font-size:10px;color:var(--muted2);margin:4px 0 6px">Зачистка: ${inv.progress||0}/${inv.totalTargets||1} · ${progress}%</div><div style="height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden"><div style="width:${progress}%;height:100%;background:linear-gradient(90deg,#ff2d78,#ffd166)"></div></div>${grp(scouts,'АВАНГАРД','#7dd3fc')}${grp(elites,'ЭЛИТА','#f59e0b')}${grp(commanders,'КОМАНДИРЫ','#fb7185')}${inv.bossUnlocked&&!inv.bossDefeated&&boss?`<div class="card" style="margin-top:8px;border-color:${boss.color||'#ff2d78'}66;background:rgba(255,45,120,.15)"><div style="font-size:11px;font-weight:800;color:#ffd166;margin-bottom:4px">👑 ФИНАЛЬНЫЙ БОСС ДОСТУПЕН</div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div><div style="font-size:13px;font-weight:700;color:${boss.color||'#ff2d78'}">${boss.icon} ${boss.name}</div><div style="font-size:10px;color:var(--muted2)">Угроза ${boss.threat||5} · ХП ${boss.maxHp} · Награда ${fmt(boss.reward)}</div></div><div style="display:flex;gap:6px"><button class="btn btn-r btn-sm" onclick="fightAlien('${boss.id}')">Босс</button><button class="btn btn-g btn-sm" onclick="coopRaid('${boss.id}')">Кооп</button></div></div></div>`:`<div style="font-size:10px;color:#ffd166;margin-top:8px">👑 Босс откроется после полной зачистки волны</div>`}</div>`; })():''}
     </div>`;
     h+=`<div class="sh">Статистика</div>
     <div class="g2">
@@ -419,27 +555,10 @@ function renderSkillsHTML(){
 
 // ── Market HTML ──
 function renderMarketHTML(){
-  const cats=['hull','engine','weapon','shield'];
-  const catN={hull:'🚀 Корпус',engine:'⚡ Двиг.',weapon:'🔫 Оружие',shield:'🛡 Щит'};
-  let h=`<div style="display:flex;gap:5px;margin-bottom:10px;overflow-x:auto">`;
-  cats.forEach(c=>{h+=`<button class="tc-btn mc-btn${c===marketCat?' on':''}" onclick="setMarketCat('${c}',this)">${catN[c]}</button>`;});
-  h+=`</div><div class="g2">`;
-  EQUIPMENT.filter(e=>e.cat===marketCat).forEach(eq=>{
-    const owned=G.owned_equip.includes(eq.id)||eq.cost===0;
-    const equipped=G.equip[eq.cat]===eq.id;
-    const tc=['','eq-t1','eq-t2','eq-t3','eq-t4','eq-t5'][eq.tier];
-    const tn=['','Обычный','Редкий','Необычный','Эпический','Легендарный'][eq.tier];
-    h+=`<div class="equip-card${equipped?' equipped':''}">
-      <div class="${tc}" style="font-size:9px;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">${tn}${equipped?' ✅':''}</div>
-      <div style="font-size:26px;margin-bottom:4px">${eq.icon}</div>
-      <div style="font-size:12px;font-weight:700;margin-bottom:4px">${eq.name}</div>
-      <div style="font-size:9px;color:var(--muted2);margin-bottom:6px">${eq.desc}</div>
-      ${equipped?`<div style="font-size:10px;color:var(--green)">Установлено</div>`:
-        owned?`<button class="btn btn-sm btn-g btn-full" onclick="equipItem('${eq.id}')">Установить</button>`:
-        `<button class="btn btn-sm btn-gold btn-full" onclick="buyEquip('${eq.id}')" ${G.cr>=eq.cost?'':'disabled'}>💰${fmt(eq.cost)}</button>`}
-    </div>`;
-  });
-  h+=`</div>`;return h;
+  // Рынок — это каталог, но с логикой покупки без авто-экипировки
+  const catMap={hull:'hull',engine:'engine',weapon:'weapon',shield:'defense'};
+  catalogFilter=catMap[marketCat]||marketCat||catalogFilter||'hull';
+  return renderCatalogHTML();
 }
 
 // ── Rangers HTML ──
@@ -508,7 +627,7 @@ function renderDebrisHTML(){
       <div class="db-info">
         <div class="db-name">${dt.name}</div>
         <div class="db-desc">${sysDet?.name||'?'}</div>
-        <div class="db-reward">📦 ${Object.entries(dt.reward).map(([k,v])=>`${uiMarketDef(k)?.icon||k}×${v}`).join(' ')} · +${dt.rp} НО</div>
+        <div class="db-reward">📦 ${Object.entries(dt.reward).map(([k,v])=>`${GOODS[k]?.icon||k}×${v}`).join(' ')} · +${dt.rp} НО</div>
         ${ready&&inSys?`<div style="font-size:11px;color:var(--green);margin-top:3px">✅ Готово!</div>`:
           !inSys?`<div style="font-size:10px;color:var(--muted);margin-top:3px">→ ${sysDet?.name}</div>`:
           `<div class="db-time">${Math.ceil((db.endTime-now)/1000)}с</div>`}
@@ -567,6 +686,15 @@ function renderPoliceHTML(){
     +2 репутации за пирата · +5 за задание · +20 за пришельца<br>
     -30 за захват системы · Взятка: +25 репутации
   </div>`;
+  // Dev reset button - only visible to player named Иван or for testing
+  if(G.playerName&&(G.playerName.toLowerCase().includes('иван')||G.playerName.toLowerCase().includes('ivan'))){
+    h+=`<div class="sh" style="color:var(--red)">⚠️ Сброс прогресса</div>
+    <div class="card" style="border-color:rgba(255,58,58,.3)">
+      <div style="font-size:12px;margin-bottom:8px">Полный сброс прогресса игрока. Сохранение будет очищено.</div>
+      <button class="btn btn-sm" style="border-color:var(--red);color:var(--red)"
+        onclick="if(confirm('Сбросить весь прогресс?')) resetAllProgress()">🗑️ Сбросить прогресс</button>
+    </div>`;
+  }
   return h;
 }
 
@@ -590,7 +718,7 @@ function renderLandHTML(){
       <span style="font-size:11px;color:var(--green);margin-left:6px">Уровень ${level}/5</span>
     </div>
     <div style="font-size:10px;color:var(--cyan);margin-bottom:8px">
-      Производит: ${plot.good?uiMarketDef(plot.good)?.name:'?'} — ${level*2}/день · +${level*5}/сек
+      Производит: ${plot.good?GOODS[plot.good]?.name:'?'} — ${level*2}/день · +${level*5}/сек
     </div>`;
   }
   if(level<5){
@@ -598,7 +726,7 @@ function renderLandHTML(){
     h+=`<div style="margin-bottom:8px">
       ${goods.map(gId=>`<button class="btn btn-sm ${G.cr>=cost?'btn-g':''}" style="margin-right:4px;margin-bottom:4px"
         onclick="buyLandPlot('${G.sys}','${gId}')" ${G.cr>=cost?'':'disabled'}>
-        ${uiMarketDef(gId)?.icon} ${uiMarketDef(gId)?.name}
+        ${GOODS[gId]?.icon} ${GOODS[gId]?.name}
       </button>`).join('')}
     </div>
     <div style="font-size:10px;color:var(--gold)">💰 Цена ур.${level+1}: ${fmt(cost)} кр</div>`;
@@ -615,12 +743,141 @@ function renderLandHTML(){
       h+=`<div class="card" style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-size:12px;font-weight:700">${s?.emoji} ${s?.name}</div>
-          <div style="font-size:10px;color:var(--muted2)">${uiMarketDef(p.good)?.icon} ${uiMarketDef(p.good)?.name} · Ур.${p.level} · +${p.level*2}/день</div>
+          <div style="font-size:10px;color:var(--muted2)">${GOODS[p.good]?.icon} ${GOODS[p.good]?.name} · Ур.${p.level} · +${p.level*2}/день</div>
         </div>
         <div style="font-family:var(--mono);font-size:14px;color:var(--green)">+${p.level*5}/сек</div>
       </div>`;
     });
   }
+  return h;
+}
+
+// ── Story Chains HTML ──
+function renderStoryHTML(){
+  let h=`<div class="sh">📖 Сюжетные цепочки</div>`;
+  STORY_CHAINS.forEach(chain=>{
+    const prog=G.storyProgress[chain.id]||{step:0,done:false};
+    const started=prog.step>0;
+    const done=prog.done;
+    const stepIdx=Math.max(0,prog.step-1);
+    const curStep=chain.steps[stepIdx];
+    const pct=done?100:Math.round((stepIdx/chain.steps.length)*100);
+    h+=`<div class="card" style="margin-bottom:10px;border-color:${done?'var(--green)':started?'var(--cyan)':'var(--b1)'}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="font-size:28px">${chain.icon}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${chain.title}</div>
+          <div style="font-size:10px;color:var(--muted2)">${chain.desc}</div>
+        </div>
+        <div style="text-align:right;font-family:var(--mono);font-size:11px;color:${done?'var(--green)':'var(--muted2)'}">
+          ${done?'✅ Завершено':`${stepIdx}/${chain.steps.length}`}
+        </div>
+      </div>
+      <div style="height:3px;background:var(--b1);border-radius:2px;margin-bottom:8px">
+        <div style="height:100%;background:linear-gradient(90deg,var(--cyan),var(--purple));width:${pct}%;border-radius:2px;transition:width .3s"></div>
+      </div>`;
+    if(!done&&curStep){
+      const canClaim=(curStep.type==='arrive'&&G.sys===curStep.sys)||
+        (curStep.type==='deliver'&&G.sys===curStep.sys&&(G.cargo[curStep.good]||0)>=curStep.amt)||
+        (curStep.type==='kill'&&(prog.killCount||0)>=curStep.count);
+      h+=`<div style="font-size:11px;color:var(--cyan);margin-bottom:4px">
+          ${started?`Шаг ${prog.step}/${chain.steps.length}:`:'Следующий шаг:'} <b>${curStep.title}</b>
+        </div>
+        <div style="font-size:10px;color:var(--muted2);margin-bottom:8px">${curStep.desc}</div>`;
+      if(curStep.type==='deliver') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">
+          📦 Нужно: ${curStep.amt}× ${GOODS[curStep.good]?.name} → система ${SYSTEMS.find(s=>s.id===curStep.sys)?.name}
+          (в трюме: ${G.cargo[curStep.good]||0})
+        </div>`;
+      if(curStep.type==='arrive') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">
+          ✈️ Долетите до: ${SYSTEMS.find(s=>s.id===curStep.sys)?.name}
+          ${G.sys===curStep.sys?'<span style="color:var(--green)">✅ Вы здесь!</span>':''}
+        </div>`;
+      if(curStep.type==='kill') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">
+          ⚔️ Убито: ${prog.killCount||0}/${curStep.count}
+        </div>`;
+      h+=`<div style="display:flex;gap:6px">
+        ${!started?`<button class="btn btn-sm btn-c" onclick="startStoryChain('${chain.id}')">▶ Начать</button>`:''}
+        ${started&&canClaim?`<button class="btn btn-sm btn-g" onclick="claimStoryStep('${chain.id}')">✅ Сдать шаг</button>`:''}
+        <span style="font-size:10px;color:var(--gold);align-self:center">🏆 +${fmt(curStep.reward)} кр</span>
+      </div>`;
+    }
+    h+=`</div>`;
+  });
+  return h;
+}
+
+// ── Random Events HTML ──
+function renderEventsHTML(){
+  let h=`<div class="sh">🌪️ События</div>`;
+  if(G.activeEvent){
+    const e=G.activeEvent;
+    const absDay=G.day+(G.month-1)*30+(G.year-2450)*360;
+    const rem=Math.max(0,e.endsDay-absDay);
+    h+=`<div class="card" style="border-color:var(--gold);background:rgba(255,215,0,.06)">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:32px">${e.icon}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--gold)">${e.name}</div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:3px">${e.desc}</div>
+          <div style="font-size:10px;color:var(--cyan);margin-top:4px">⏳ Осталось: ${rem} д.</div>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    h+=`<div class="card" style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">Нет активных событий</div>`;
+  }
+  h+=`<div class="sh">📋 Все события</div>`;
+  getEventListSafe().forEach(e=>{
+    const wasActive=G.eventHistory?.some(h=>h.id===e.id);
+    h+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:4px;
+      background:var(--card);border:1px solid var(--b1);border-radius:8px;opacity:${wasActive?1:.6}">
+      <div style="font-size:20px">${e.icon}</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700">${e.name}</div>
+        <div style="font-size:10px;color:var(--muted2)">${e.desc}</div>
+      </div>
+      <div style="font-size:10px;color:var(--muted2)">${e.duration?`${e.duration}д`:'Разово'}</div>
+    </div>`;
+  });
+  // Anomalies section
+  h+=`<div class="sh">🔮 Аномалии ${G.anomaliesFound?`(найдено: ${G.anomaliesFound})`:''}</div>`;
+  const active=(G.anomaliesActive||[]).filter(a=>a.sysId===G.sys);
+  if(active.length){
+    active.forEach(a=>{
+      h+=`<div class="card" style="border-color:var(--purple)">
+        <div style="display:flex;align-items:center;gap:10px;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:28px">${a.icon}</div>
+            <div>
+              <div style="font-size:13px;font-weight:700">${a.name}</div>
+              <div style="font-size:10px;color:var(--muted2)">${a.desc}</div>
+              <div style="font-size:10px;color:var(--red)">⚠️ Опасность: ${Math.round(a.danger*100)}%</div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-c" onclick="exploreAnomaly('${a.id}')">🔍 Исследовать</button>
+        </div>
+      </div>`;
+    });
+  } else {
+    h+=`<div style="font-size:11px;color:var(--muted2);padding:8px">Нет аномалий в текущей системе. Исследуйте опасные и научные системы.</div>`;
+  }
+  if(G.anomalyLog?.length){
+    h+=`<div class="sh">История аномалий</div>`;
+    G.anomalyLog.slice(0,5).forEach(a=>{
+      const rStr=Object.entries(a.reward||{}).filter(([k])=>k!=='teleport').map(([k,v])=>`+${v} ${k}`).join(', ');
+      h+=`<div style="font-size:11px;color:var(--muted2);padding:4px 8px">${a.icon} ${a.name} — ${rStr}</div>`;
+    });
+  }
+  getAnomalyListSafe().forEach(a=>{
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:3px;
+      background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.15);border-radius:8px">
+      <div style="font-size:18px">${a.icon}</div>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:700">${a.name}</div>
+        <div style="font-size:9px;color:var(--muted2)">${a.desc} · Опасность ${Math.round(a.danger*100)}%</div>
+      </div>
+    </div>`;
+  });
   return h;
 }
 
@@ -666,13 +923,6 @@ function sellGood(gId,amt){
   G.cr+=earn;G.totalCr+=earn;
   G.cargo[gId]=(G.cargo[gId]||0)-toSell;
   if((G.cargo[gId]||0)<=0) { delete G.cargo[gId]; if(G.cargoCost) delete G.cargoCost[gId]; }
-  // deliver quest: selling goods at destination completes it
-  G.quests.forEach(q=>{
-    if(!q.done&&q.accepted&&q.type==='deliver'&&q.need.good===gId&&q.need.destSys===G.sys){
-      q.progress=(q.progress||0)+toSell;
-      if(q.progress>=q.need.amt) completeQuest(q);
-    }
-  });
   const profitStr=avgCost>0?(profit>=0?` (+${fmt(profit)})`:(` (${fmt(profit)})`)): '';
   toast(`💰 +${fmt(earn)} кр${profitStr}`,'good');haptic('medium');renderTrade();updateHUD();
 }
@@ -777,3 +1027,251 @@ initPrices();
 _uiReady = true;
 if(!G.playerName) showNameScreen();
 else { updateHUD(); renderMine(); refreshQuests(); }
+
+// ════════════════════════════════════
+//  АНГАР — текущее снаряжение + слоты
+// ════════════════════════════════════
+let hangarCompareSlot=null;
+function renderHangarHTML(){
+  const hulls=getEquipSection('hull');
+  const hull=hulls.find(h=>h.id===G.equip.hull)||hulls[0];
+  const slots=hull?.stats?.slots||{wpn:2,def:1,eng:1,spec:2,sup:1};
+  const eq=getEquipStats();
+  let h=`<div class="sh">🚀 Ангар — ${hull?.name||'Без корпуса'}</div>`;
+  // Ship summary card
+  h+=`<div class="card" style="border-color:${eqRarityColor(hull?.rarity||'common')}55;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="font-size:42px">${hull?.icon||'🚀'}</div>
+      <div>
+        <div style="font-size:14px;font-weight:700">${hull?.name}</div>
+        <div style="font-size:10px;color:${eqRarityColor(hull?.rarity||'common')}">${(hull?.rarity||'common').toUpperCase()} · T${hull?.tier||1} · ${getManufacturerNameSafe(hull||{})}</div>
+        <div style="font-size:10px;color:var(--muted2)">${hull?.role||''} · ${hull?.desc||''}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11px">
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">⚔️ Атака</div><div style="font-family:var(--mono);color:var(--gold)">${calcAttack()}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">🛡️ Защита</div><div style="font-family:var(--mono);color:var(--cyan)">${calcDefense()}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">❤️ ХП</div><div style="font-family:var(--mono);color:var(--green)">${calcMaxHull()}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">📦 Трюм</div><div style="font-family:var(--mono);color:var(--amber)">${calcCargoMax()}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">⚡ Топл.</div><div style="font-family:var(--mono);color:var(--purple)">${G.maxFuel}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:6px;text-align:center">
+        <div style="color:var(--muted2)">🏃 Уклон</div><div style="font-family:var(--mono);color:var(--cyan)">${Math.round((eq.dodge||0)*100)}%</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Slots
+  const slotDefs=[
+    {key:'hull',  label:'Корпус',    cat:'hull',    icon:'🚀'},
+    {key:'weapon',label:'Оружие 1',  cat:'weapon',  icon:'⚔️'},
+    {key:'defense',label:'Защита',   cat:'defense', icon:'🛡️'},
+    {key:'engine',label:'Двигатель', cat:'engine',  icon:'🔥'},
+    {key:'specmod1',label:'Спецмод 1',cat:'specmod',icon:'🔬'},
+    {key:'support',label:'Поддержка',cat:'support', icon:'🤖'},
+  ];
+  h+=`<div class="sh">Слоты</div>`;
+  slotDefs.forEach(sl=>{
+    const installedId=G.equip[sl.key]||G.equip[sl.key.replace(/\d/,'')];
+    // search in full catalog
+    const installed=getEquipCatalog().find(e=>e.id===installedId);
+    const rarColor=installed?eqRarityColor(installed.rarity||'common'):'#333';
+    h+=`<div class="card" style="display:flex;align-items:center;gap:10px;border-color:${rarColor}44;margin-bottom:6px"
+        onclick="setMoreTab('catalog',null);catalogFilter='${sl.cat}';renderMoreTab()">
+      <div style="font-size:24px">${installed?.icon||sl.icon}</div>
+      <div style="flex:1">
+        <div style="font-size:10px;color:var(--muted2)">${sl.label}</div>
+        <div style="font-size:12px;font-weight:700;color:${rarColor}">${installed?.name||'— Пусто —'}</div>
+        ${installed?`<div style="font-size:9px;color:var(--muted2)">${installed.rarity?.toUpperCase()} · T${installed.tier}</div>`:''}
+      </div>
+      <div style="font-size:10px;color:var(--cyan)">Сменить ›</div>
+    </div>`;
+  });
+
+  // Maintenance cost
+  const installedItems=Object.values(G.equip).map(id=>getEquipCatalog().find(e=>e.id===id)).filter(Boolean);
+  const totalUpkeep=installedItems.reduce((s,e)=>s+(e.upkeep||0),0);
+  if(totalUpkeep>0){
+    h+=`<div style="font-size:11px;color:var(--muted2);padding:8px;background:rgba(0,0,0,.2);border-radius:6px;margin-top:6px">
+      ⚙️ Обслуживание: <span style="color:var(--gold)">${fmt(totalUpkeep)} кр/день</span>
+    </div>`;
+  }
+  return h;
+}
+
+// ════════════════════════════════════
+//  КАТАЛОГ — весь ассортимент с фильтрами
+// ════════════════════════════════════
+let catalogFilter='hull';
+let catalogTier=0; // 0=all
+let catalogAvailOnly=false;
+let catalogSearch='';
+let catalogCompareId=null;
+
+
+// ── Перевод названий характеристик ──
+function _fmtStats(stats){
+  const labels={
+    atk:'⚔️Урон',def:'🛡Защита',maxHull:'❤️ХП',cargo:'📦Трюм',
+    fuelMod:'⛽Топливо',dodge:'💨Уклон',sciMod:'🔬Наука',tradeMod:'💰Торговля',
+    mineMod:'⛏Добыча',repMod:'⭐Репутация',droneDmg:'🤖Дрон-урон',
+    droneRegen:'🔧Дрон-рем',droneCount:'🤖Дронов',crit:'🎯Крит',
+    piercing:'🔓Пробитие',missileDmg:'🚀Ракета',missiles:'🚀+Ракет',
+    burnChance:'🔥Поджог',energy:'⚡Энергия',reflect:'🪞Отраж',
+    alienBonus:'👽vs Пришельцы',speed:'🚀Скорость',
+    dmgReduction:'🛡-Урон',scanRange:'📡Дальн',anomalyChance:'🔮Аномалии',
+    multiHit:'✖Попаданий',alienDef:'👽Защита vs Пришельцы',
+    warp:'Открывает галактики',instantTravel:'Мгновенный перелёт',
+    maxFuel:'⛽+Бак',thornDmg:'💢Контратака',autoCollect:'Авто-сбор'
+  };
+  return Object.entries(stats)
+    .filter(([k])=>!['slots','fuelFree','warp','instantTravel','autoCollect','autoSort',
+      'priceInfo','alienComm','alienDetect','alienWeakspot','priceManip','combatRegen',
+      'combatRevive','scanRange','psiPierce'].includes(k)&&typeof stats[k]==='number')
+    .slice(0,5)
+    .map(([k,v])=>{
+      const lbl=labels[k]||k;
+      if(k==='fuelMod') return `${lbl}:${v>0?'+':''}${Math.round(v*100)}%`;
+      if(['dodge','sciMod','tradeMod','mineMod','repMod','crit','piercing',
+          'burnChance','reflect','alienBonus','alienDef','dmgReduction','thornDmg'].includes(k))
+        return `${lbl}:${v>0?'+':''}${Math.round(v*100)}%`;
+      return `${lbl}:${v>0?'+':''}${Math.round(v*100)/100}`;
+    }).join(' · ');
+}
+function renderCatalogHTML(){
+  const cats=[
+    {id:'hull',   label:'Корпуса',     icon:'🚀', count:getEquipSection('hull').length},
+    {id:'weapon', label:'Оружие',      icon:'⚔️', count:getEquipSection('weapon').length},
+    {id:'defense',label:'Защита',      icon:'🛡️', count:getEquipSection('defense').length},
+    {id:'engine', label:'Двигатели',   icon:'🔥', count:getEquipSection('engine').length},
+    {id:'specmod',label:'Спецмодули',  icon:'🔬', count:getEquipSection('specmod').length},
+    {id:'support',label:'Дроны',       icon:'🤖', count:getEquipSection('support').length},
+  ];
+
+  const equipCatalog=getEquipCatalog();
+  let h=`<div class="sh">📋 Каталог техники (${equipCatalog.length} ед.)</div>`;
+
+  // Category tabs
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">`;
+  cats.forEach(c=>{
+    const on=catalogFilter===c.id;
+    h+=`<button class="btn btn-sm ${on?'btn-c':''}" style="font-size:10px" onclick="catalogFilter='${c.id}';renderMoreTab()">
+      ${c.icon} ${c.label} <span style="opacity:.6">${c.count}</span>
+    </button>`;
+  });
+  h+=`</div>`;
+
+  // Tier filter
+  h+=`<div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+    ${[0,1,2,3,4,5,6].map(t=>`<button class="btn btn-sm ${catalogTier===t?'btn-c':''}" style="font-size:10px;min-width:36px"
+      onclick="catalogTier=${t};renderMoreTab()">${t===0?'Все':'T'+t}</button>`).join('')}
+    <button class="btn btn-sm ${catalogAvailOnly?'btn-g':''}" style="font-size:10px;margin-left:auto"
+      onclick="catalogAvailOnly=!catalogAvailOnly;renderMoreTab()">✅ Только доступные</button>
+  </div>`;
+
+  // Items list
+  let items=getEquipSection(catalogFilter);
+  if(catalogTier>0) items=items.filter(e=>e.tier===catalogTier);
+  if(catalogAvailOnly) items=items.filter(e=>getEquipUnlockedSafe(e,G));
+  if(catalogSearch) items=items.filter(e=>e.name.toLowerCase().includes(catalogSearch));
+
+  const installed=G.equip;
+  h+=`<div style="font-size:10px;color:var(--muted2);margin-bottom:6px">${items.length} предметов</div>`;
+
+  items.forEach(item=>{
+    const unlocked=getEquipUnlockedSafe(item,G);
+    const lockReason=unlocked?'':getEquipLockReasonSafe(item,G);
+    const rarColor=eqRarityColor(item.rarity||'common');
+    const isEquipped=Object.values(G.equip).includes(item.id);
+    const isOwned=G.owned_equip?.includes(item.id)||isEquipped;
+
+    // Comparison delta if comparing
+    let compareBlock='';
+    if(catalogCompareId&&catalogCompareId!==item.id){
+      const base=getEquipCatalog().find(e=>e.id===catalogCompareId);
+      if(base&&base.cat===item.cat){
+        const dAtk=(item.stats?.atk||0)-(base.stats?.atk||0);
+        const dDef=(item.stats?.def||0)-(base.stats?.def||0);
+        const dHull=(item.stats?.maxHull||0)-(base.stats?.maxHull||0);
+        const dCargo=(item.stats?.cargo||0)-(base.stats?.cargo||0);
+        const statParts=[];
+        if(dAtk) statParts.push(`<span style="color:${dAtk>0?'var(--green)':'var(--red)'}">Урон ${dAtk>0?'+':''}${dAtk}</span>`);
+        if(dDef) statParts.push(`<span style="color:${dDef>0?'var(--green)':'var(--red)'}">Броня ${dDef>0?'+':''}${dDef}</span>`);
+        if(dHull) statParts.push(`<span style="color:${dHull>0?'var(--green)':'var(--red)'}">ХП ${dHull>0?'+':''}${dHull}</span>`);
+        if(dCargo) statParts.push(`<span style="color:${dCargo>0?'var(--green)':'var(--red)'}">Трюм ${dCargo>0?'+':''}${dCargo}</span>`);
+        if(statParts.length) compareBlock=`<div style="font-size:9px;margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">${statParts.join('')}</div>`;
+      }
+    }
+
+    h+=`<div class="card" style="margin-bottom:6px;opacity:${unlocked?1:.6};
+      border-color:${isEquipped?'var(--green)':rarColor}44;
+      ${isEquipped?'background:rgba(0,255,136,.04)':''}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:26px;filter:${unlocked?'none':'grayscale(1)'}">${item.icon||'📦'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;font-weight:700">${item.name}</span>
+            <span style="font-size:9px;color:${rarColor};text-transform:uppercase">${(item.rarity||'common')}</span>
+            <span style="font-size:9px;color:var(--muted2)">T${item.tier}</span>
+            ${isEquipped?'<span style="font-size:9px;color:var(--green)">✅ Установлено</span>':''}
+          </div>
+          <div style="font-size:9px;color:var(--muted2)">${getManufacturerIconSafe(getManufacturerKeySafe(item))} ${getManufacturerNameSafe(item)} · ${item.role||item.subcat||'—'}</div>
+          <div style="font-size:10px;color:var(--muted2);margin-top:2px">${item.desc}</div>
+          ${unlocked?'':'<div style="font-size:9px;color:var(--red);margin-top:2px">🔒 '+lockReason+'</div>'}
+          <div style="font-size:9px;color:var(--muted2);margin-top:2px">
+            ${_fmtStats(item.stats||{})}
+          </div>
+          ${compareBlock}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          <div style="font-family:var(--mono);font-size:12px;color:var(--gold)">${getItemPriceSafe(item)?fmt(getItemPriceSafe(item))+' кр':'Старт'}</div>
+          ${unlocked&&!isEquipped?(isOwned?`<button class="btn btn-sm btn-c" style="font-size:9px" onclick="equipCatalogItem('${item.id}')">Надеть</button>`:`<button class="btn btn-sm btn-g" style="font-size:9px" onclick="buyCatalogItem('${item.id}')">Купить</button>`):''}
+          ${!isEquipped?`<button class="btn btn-sm" style="font-size:9px;border-color:var(--b2);color:var(--cyan)"
+            onclick="catalogCompareId='${item.id}';renderMoreTab()">Сравнить</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
+function buyCatalogItem(itemId){
+  const item=getEquipCatalog().find(e=>e.id===itemId);
+  if(!item) return;
+  if(!getEquipUnlockedSafe(item,G)){toast('🔒 Заблокировано: '+getEquipLockReasonSafe(item,G),'bad');return;}
+  const price=getItemPriceSafe(item);
+  if((G.owned_equip||[]).includes(itemId)){toast('Уже куплено','good');return;}
+  if(price>0){
+    if(G.cr<price){toast(`💸 Нужно ${fmt(price)} кр`,'bad');return;}
+    G.cr-=price;
+  }
+  if(!G.owned_equip) G.owned_equip=[];
+  G.owned_equip.push(itemId);
+  toast(`🛒 ${item.name} куплено`,'good');
+  hapticN('success');
+  renderMoreTab();updateHUD();
+}
+function equipCatalogItem(itemId){
+  const item=getEquipCatalog().find(e=>e.id===itemId);
+  if(!item) return;
+  if(!getEquipUnlockedSafe(item,G)){toast('🔒 Заблокировано: '+getEquipLockReasonSafe(item,G),'bad');return;}
+  const price=getItemPriceSafe(item);
+  const owned=(G.owned_equip||[]).includes(itemId) || price===0;
+  if(!owned){toast('🛒 Сначала купите предмет','bad');return;}
+  // Determine slot
+  const slotMap={hull:'hull',weapon:'weapon',defense:'defense',engine:'engine',specmod:'specmod1',support:'support'};
+  const slot=slotMap[item.cat];
+  if(slot) G.equip[slot]=itemId;
+  G.maxHull=calcMaxHull();
+  toast(`✅ ${item.name} установлен!`,'good');hapticN('success');
+  renderMoreTab();updateHUD();
+}

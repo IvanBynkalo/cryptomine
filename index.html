@@ -6,11 +6,12 @@
 <title>Space Rangers: Idle Wars</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:ital,wght@0,300;0,400;0,600;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&family=Exo+2:ital,wght@0,300;0,400;0,600;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 /* ── FONTS ── */
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap');
 
 :root{
   --bg:#030b14;--bg2:#061020;--card:#0b1a2e;--card2:#0f2040;--card3:#132544;
@@ -18,7 +19,7 @@
   --cyan:#00c8ff;--teal:#00ffe5;--gold:#ffd700;--amber:#ff9500;
   --green:#00ff88;--red:#ff3a3a;--orange:#ff6b00;--purple:#a855f7;--pink:#ff2d78;
   --text:#c0d8f0;--muted:#3a5570;--muted2:#5a7590;
-  --mono:'Share Tech Mono',monospace;--sans:'Exo 2',sans-serif;
+  --mono:'Share Tech Mono',monospace;--sans:'Inter',sans-serif;--display:'Orbitron',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{height:100%;height:100dvh}
@@ -178,6 +179,8 @@ body::after{
   background:rgba(0,0,0,.3);color:var(--muted2);font-size:11px;cursor:pointer;transition:.15s
 }
 .gtab.on{background:rgba(0,180,255,.12);border-color:var(--b3);color:var(--cyan)}
+.gtab.locked{opacity:.55;filter:saturate(.6)}
+.gtab .glock{font-size:9px;color:var(--gold);margin-left:6px}
 .sys-panel{
   position:absolute;bottom:0;left:0;right:0;
   background:linear-gradient(180deg,rgba(6,16,32,0),rgba(6,16,32,.97) 25%);
@@ -469,7 +472,7 @@ body::after{
   <div class="nav">
     <button class="nb on" onclick="goTo('mine',this)"><span class="ni">⛏️</span><span class="nl">Майнинг</span></button>
     <button class="nb" onclick="goTo('galaxy',this)"><span class="ni">🌌</span><span class="nl">Галактика</span></button>
-    <button class="nb" onclick="goTo('trade',this)"><span class="ni">🛸</span><span class="nl">Рынок</span></button>
+    <button class="nb" onclick="goTo('trade',this)"><span class="ni">🛸</span><span class="nl">Торговля</span></button>
     <button class="nb" onclick="goTo('quest',this)" id="nb-quest"><span class="ni">📋</span><span class="nl">Задания</span></button>
     <button class="nb" onclick="goTo('more',this)"><span class="ni">⚙️</span><span class="nl">Ещё</span></button>
   </div>
@@ -484,20 +487,20 @@ body::after{
     <div class="hud-sep"></div>
     <div class="hud-c" style="min-width:80px"><div class="hud-v" style="font-size:11px" id="g-loc">Солнечная</div><div class="hud-l">Система</div></div>
   </div>
-  <div class="galaxy-tabs">
-    <button class="gtab on" onclick="setGalaxy(0,this)">🌌 Альфа</button>
-    <button class="gtab" onclick="setGalaxy(1,this)">💫 Бета</button>
-    <button class="gtab" onclick="setGalaxy(2,this)">⭐ Гамма</button>
-    <button class="gtab" onclick="setGalaxy(3,this)">🔴 Хаос</button>
-  </div>
+  <div class="galaxy-tabs" id="galaxy-tabs"></div>
   <div id="gx-wrap">
     <canvas id="gx-c"></canvas>
+    <div class="gx-topbar">
+      <button class="gx-back" id="gx-back-btn" onclick="backToGalaxyView()">← К галактике</button>
+      <div class="gx-breadcrumb" id="gx-breadcrumb">🌌 Карта галактики</div>
+    </div>
     <div class="sys-panel" id="sys-panel">
       <div class="sp-name" id="sp-nm"></div>
       <div class="sp-desc" id="sp-ds"></div>
       <div class="travel-bar" id="tv-bar"><div class="travel-fill" id="tv-f"></div></div>
       <div class="sp-row">
         <button class="btn btn-c" style="flex:1" id="fly-btn" onclick="doFly()">🚀 Лететь</button>
+        <button class="btn btn-p" style="flex:1" id="nav-btn" onclick="openSelectedSystem()">🪐 Система</button>
         <button class="btn" style="flex:0 0 44px;background:var(--card);border:1px solid var(--b1);color:var(--muted2)" onclick="closePanel()">✕</button>
       </div>
     </div>
@@ -505,7 +508,7 @@ body::after{
   <div class="nav">
     <button class="nb" onclick="goTo('mine',this)"><span class="ni">⛏️</span><span class="nl">Майнинг</span></button>
     <button class="nb on" onclick="goTo('galaxy',this)"><span class="ni">🌌</span><span class="nl">Галактика</span></button>
-    <button class="nb" onclick="goTo('trade',this)"><span class="ni">🛸</span><span class="nl">Рынок</span></button>
+    <button class="nb" onclick="goTo('trade',this)"><span class="ni">🛸</span><span class="nl">Торговля</span></button>
     <button class="nb" onclick="goTo('quest',this)"><span class="ni">📋</span><span class="nl">Задания</span></button>
     <button class="nb" onclick="goTo('more',this)"><span class="ni">⚙️</span><span class="nl">Ещё</span></button>
   </div>
@@ -526,7 +529,7 @@ body::after{
   <div class="nav">
     <button class="nb" onclick="goTo('mine',this)"><span class="ni">⛏️</span><span class="nl">Майнинг</span></button>
     <button class="nb" onclick="goTo('galaxy',this)"><span class="ni">🌌</span><span class="nl">Галактика</span></button>
-    <button class="nb on" onclick="goTo('trade',this)"><span class="ni">🛸</span><span class="nl">Рынок</span></button>
+    <button class="nb on" onclick="goTo('trade',this)"><span class="ni">🛸</span><span class="nl">Торговля</span></button>
     <button class="nb" onclick="goTo('quest',this)"><span class="ni">📋</span><span class="nl">Задания</span></button>
     <button class="nb" onclick="goTo('more',this)"><span class="ni">⚙️</span><span class="nl">Ещё</span></button>
   </div>
@@ -545,7 +548,7 @@ body::after{
   <div class="nav">
     <button class="nb" onclick="goTo('mine',this)"><span class="ni">⛏️</span><span class="nl">Майнинг</span></button>
     <button class="nb" onclick="goTo('galaxy',this)"><span class="ni">🌌</span><span class="nl">Галактика</span></button>
-    <button class="nb" onclick="goTo('trade',this)"><span class="ni">🛸</span><span class="nl">Рынок</span></button>
+    <button class="nb" onclick="goTo('trade',this)"><span class="ni">🛸</span><span class="nl">Торговля</span></button>
     <button class="nb on" onclick="goTo('quest',this)" id="nb-quest4"><span class="ni">📋</span><span class="nl">Задания</span></button>
     <button class="nb" onclick="goTo('more',this)"><span class="ni">⚙️</span><span class="nl">Ещё</span></button>
   </div>
@@ -562,24 +565,29 @@ body::after{
     <div class="hud-sep"></div>
     <div class="hud-c"><div class="hud-v" id="mo-mis">3</div><div class="hud-l">Ракеты</div></div>
   </div>
-  <!-- Sub-tabs -->
-  <div style="display:flex;gap:4px;padding:7px 10px;background:rgba(3,11,20,.9);
-    border-bottom:1px solid var(--b1);flex-shrink:0;overflow-x:auto">
-    <button class="tc-btn on" onclick="setMoreTab('combat',this)">⚔️ Бой</button>
-    <button class="tc-btn" onclick="setMoreTab('tech',this)">🔬 Тех</button>
-    <button class="tc-btn" onclick="setMoreTab('skills',this)">🧠 Навыки</button>
-    <button class="tc-btn" onclick="setMoreTab('market',this)">🏪 Рынок</button>
-    <button class="tc-btn" onclick="setMoreTab('rangers',this)">🤖 Рейнджеры</button>
-    <button class="tc-btn" onclick="setMoreTab('debris',this)">💫 Обломки</button>
-    <button class="tc-btn" onclick="setMoreTab('online',this)">🌐 Онлайн</button>
-    <button class="tc-btn" onclick="setMoreTab('police',this)">👮 Полиция</button>
-    <button class="tc-btn" onclick="setMoreTab('land',this)">🌱 Земля</button>
+  <div class="more-modnav">
+    <button class="mnb on" id="mnb-combat" onclick="setMoreTab('combat',this)"><span class="mni">⚔️</span><span class="mnl">Бой</span></button>
+    <button class="mnb" id="mnb-hangar" onclick="setMoreTab('hangar',this)"><span class="mni">🚀</span><span class="mnl">Ангар</span></button>
+    <button class="mnb" id="mnb-catalog" onclick="setMoreTab('catalog',this)"><span class="mni">📋</span><span class="mnl">Каталог</span></button>
+    <button class="mnb" id="mnb-tech" onclick="setMoreTab('tech',this)"><span class="mni">🔬</span><span class="mnl">Тех</span></button>
+    <button class="mnb" id="mnb-skills" onclick="setMoreTab('skills',this)"><span class="mni">🧠</span><span class="mnl">Навыки</span></button>
+    <button class="mnb" id="mnb-market" onclick="setMoreTab('market',this)"><span class="mni">🏪</span><span class="mnl">Рынок</span></button>
+    <button class="mnb" id="mnb-rangers" onclick="setMoreTab('rangers',this)"><span class="mni">🤖</span><span class="mnl">Рейнджеры</span></button>
+    <button class="mnb" id="mnb-online" onclick="setMoreTab('online',this)"><span class="mni">🌐</span><span class="mnl">Онлайн</span></button>
+    <button class="mnb" id="mnb-events" onclick="setMoreTab('events',this)"><span class="mni">🌀</span><span class="mnl">События</span></button>
+    <button class="mnb" id="mnb-more2" onclick="toggleMoreSubnav()"><span class="mni">•••</span><span class="mnl">Ещё</span></button>
+  </div>
+  <div class="more-extra" id="more-extra" style="display:none">
+    <button class="mnb extra" id="mnb-police" onclick="setMoreTab('police',this)"><span class="mni">👮</span><span class="mnl">Полиция</span></button>
+    <button class="mnb extra" id="mnb-land" onclick="setMoreTab('land',this)"><span class="mni">🌱</span><span class="mnl">Земля</span></button>
+    <button class="mnb extra" id="mnb-story" onclick="setMoreTab('story',this)"><span class="mni">📖</span><span class="mnl">Сюжет</span></button>
+    <button class="mnb extra" id="mnb-debris" onclick="setMoreTab('debris',this)"><span class="mni">💫</span><span class="mnl">Обломки</span></button>
   </div>
   <div class="scr" id="more-scr"></div>
   <div class="nav">
     <button class="nb" onclick="goTo('mine',this)"><span class="ni">⛏️</span><span class="nl">Майнинг</span></button>
     <button class="nb" onclick="goTo('galaxy',this)"><span class="ni">🌌</span><span class="nl">Галактика</span></button>
-    <button class="nb" onclick="goTo('trade',this)"><span class="ni">🛸</span><span class="nl">Рынок</span></button>
+    <button class="nb" onclick="goTo('trade',this)"><span class="ni">🛸</span><span class="nl">Торговля</span></button>
     <button class="nb" onclick="goTo('quest',this)"><span class="ni">📋</span><span class="nl">Задания</span></button>
     <button class="nb on" onclick="goTo('more',this)"><span class="ni">⚙️</span><span class="nl">Ещё</span></button>
   </div>
@@ -594,7 +602,6 @@ body::after{
 <script src="data.js"></script>
 <script src="state.js"></script>
 <script src="equipment_catalog.js"></script>
-<script src="market_catalog.js"></script>
 <script src="engine.js"></script>
 <script src="combat.js"></script>
 <script src="galaxy.js"></script>
