@@ -497,6 +497,21 @@ if(!G.anomaliesActive) G.anomaliesActive=[];
 if(!G.anomaliesFound)  G.anomaliesFound=0;
 if(!G.history)         G.history=[];
 if(!G.debrisActive)    G.debrisActive=[];
+// Migrate old debris objects (created before sysId/reward refactor)
+G.debrisActive = G.debrisActive.filter(d=>{
+  // Remove expired old-format objects (had 'expires' timestamp)
+  if(d.expires && Date.now() > d.expires) return false;
+  return true;
+}).map(d=>{
+  // Fix missing sysId
+  if(!d.sysId) d.sysId = G.sys || 'sol';
+  // Fix reward if it's still an object
+  if(d.reward && typeof d.reward === 'object'){
+    d.reward = Object.entries(d.reward).reduce((sum,[gId,qty])=>sum+(_goodBase(gId)||20)*qty, 0);
+  }
+  if(!d.reward || isNaN(d.reward)) d.reward = 50;
+  return d;
+});
 if(!G.equipPrices)     G.equipPrices={};
 function tick(){
   const now=Date.now();
