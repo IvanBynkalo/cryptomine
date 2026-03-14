@@ -581,12 +581,6 @@ function tickRandomEvents(){
   }
 }
 
-function forceSpawnDebris(){
-  const d=DEBRIS_TYPES[Math.floor(Math.random()*DEBRIS_TYPES.length)];
-  G.debrisActive.push({id:`db_${Date.now()}_${Math.random()}`,type:d.id,name:d.name,
-    icon:d.icon,reward:d.reward,rp:d.rp,expires:Date.now()+d.time*1000});
-}
-
 // Get current event effect multiplier
 function getEventMult(effect){
   if(!G.activeEvent) return 1;
