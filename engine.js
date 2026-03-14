@@ -1,57 +1,498 @@
 // ═══════════════════════════════════════
 //  engine.js — game loop, time, quests, mining, bots
 // ═══════════════════════════════════════
-// ── Goods helpers — work for both GOODS (legacy) and MARKET_CATALOG ──
-function _goodBase(gId){
-  if(typeof GOODS!=='undefined' && GOODS[gId]) return GOODS[gId].base || 0;
-  const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
-  return it?.basePrice || it?.base || 0;
-}
-function _goodName(gId){
-  if(typeof GOODS!=='undefined' && GOODS[gId]) return GOODS[gId].name || gId;
-  const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
-  return it?.name || gId;
-}
-function _goodIcon(gId){
-  if(typeof GOODS!=='undefined' && GOODS[gId]) return GOODS[gId].icon || '📦';
-  const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
-  return it?.icon || '📦';
+
+
+// ── Market helpers (Stage 2) ─────────────────────────────────────────────
+function getAllMarketGoods(){
+  if(typeof MARKET_CATALOG!=='undefined' && Array.isArray(MARKET_CATALOG) && MARKET_CATALOG.length){
+    return MARKET_CATALOG;
+  }
+  return Object.entries(typeof GOODS!=='undefined' ? GOODS : {}).map(([id,def])=>({
+    id,
+    name:def.name,
+    basePrice:def.base,
+    category:'basic',
+    rarity:'common',
+    volume:1,
+    illegal:false,
+    icon:def.icon,
+  }));
 }
 
-// ── Per-system market goods (seeded deterministic per system + MARKET_CATALOG) ──
-const _CAT_MAP_SYS={
-  home:    ['basic','industrial','contract'],
-  trade:   ['basic','industrial','luxury','contract'],
-  paradise:['basic','luxury','science','contract'],
-  mining:  ['basic','industrial','regional'],
-  science: ['science','industrial','regional','unique'],
-  danger:  ['military','regional','unique','contract']
-};
-const _CAT_TAKE_SYS={basic:8,industrial:6,military:5,science:5,regional:5,unique:3,luxury:4,contract:4};
-function _sysHash(str){ let h=0; for(let i=0;i<str.length;i++) h=((h<<5)-h)+str.charCodeAt(i); return Math.abs(h); }
-function getSystemMarketGoods(sys){
-  if(!sys) return [];
-  if(Array.isArray(sys._marketGoods)&&sys._marketGoods.length) return sys._marketGoods;
-  const out=[];
-  const add=id=>{ if(id&&!out.includes(id)) out.push(id); };
-  (sys.goods||[]).forEach(add);
-  const cats=_CAT_MAP_SYS[sys.type]||['basic','industrial','regional'];
-  const allCat=globalThis.MARKET_CATALOG||[];
-  const seed=_sysHash(sys.id);
-  cats.forEach((cat,idx)=>{
-    const arr=allCat.filter(x=>x.category===cat);
-    if(!arr.length) return;
-    const count=Math.min(_CAT_TAKE_SYS[cat]||4,arr.length);
-    const start=(seed+idx*7)%arr.length;
-    for(let i=0;i<count;i++) add(arr[(start+i)%arr.length].id);
-  });
-  sys._marketGoods=out;
-  return out;
+function getMarketItem(id){
+  if(typeof MARKET_BY_ID!=='undefined' && MARKET_BY_ID && MARKET_BY_ID[id]) return MARKET_BY_ID[id];
+  if(typeof GOODS!=='undefined' && GOODS[id]){
+    return {
+      id,
+      name:GOODS[id].name,
+      basePrice:GOODS[id].base,
+      category:'basic',
+      rarity:'common',
+      volume:1,
+      illegal:false,
+      icon:GOODS[id].icon,
+    };
+  }
+  return null;
 }
-function _sysGoods(sys){
-  if(!sys) return [];
-  try{ const r=getSystemMarketGoods(sys); if(r&&r.length) return r; }catch(e){}
-  return sys.goods||[];
+
+function getGoodBasePrice(id){
+  const item=getMarketItem(id);
+  return item ? Number(item.basePrice||item.base||0) : 0;
+}
+function getGoodName(id){ return getMarketItem(id)?.name || id; }
+function getGoodIcon(id){ return getMarketItem(id)?.icon || (typeof GOODS!=='undefined'&&GOODS[id]?GOODS[id].icon:'📦'); }
+
+function getCareerProfile(){
+  return (typeof CAREER_PATHS!=='undefined' && CAREER_PATHS[G.career]) ? CAREER_PATHS[G.career] : (CAREER_PATHS?.trader || {id:'trader',name:'Торговец'});
+}
+function getCareerLevel(){ return Math.max(1, 1 + Math.floor((G.careerXP||0)/120)); }
+function addCareerXP(amount){ G.careerXP=(G.careerXP||0)+Math.max(0, amount|0); }
+function addInfluence(amount){ G.influence=Math.max(-50, (G.influence||0)+(amount||0)); }
+function addHonor(amount){ G.honor=Math.max(-50, (G.honor||0)+(amount||0)); }
+function hasLicense(id){ return !!(G.licenses && G.licenses[id]); }
+function getLicenseDef(id){ return (typeof MARKET_LICENSES!=='undefined' && MARKET_LICENSES[id]) || null; }
+function canBuyLicense(id){
+  const def=getLicenseDef(id); if(!def) return {ok:false, reason:'Нет лицензии'};
+  if(hasLicense(id)) return {ok:false, reason:'Уже есть'};
+  if((G.lvl||1) < (def.minLvl||1)) return {ok:false, reason:`Нужен ур. ${def.minLvl}`};
+  if((G.honor||0) < (def.minHonor||0)) return {ok:false, reason:`Нужна честь ${def.minHonor}`};
+  if((G.influence||0) < (def.minInfluence||0)) return {ok:false, reason:`Нужно влияние ${def.minInfluence}`};
+  if((def.requires||[]).some(req=>!hasLicense(req))) return {ok:false, reason:`Нужна ${(def.requires||[]).filter(req=>!hasLicense(req)).join(', ')}`};
+  if((G.cr||0) < (def.cost||0)) return {ok:false, reason:'Недостаточно кредитов'};
+  return {ok:true, reason:''};
+}
+function getLicenseReason(item){
+  if(!item?.licenseRequired) return '';
+  if(hasLicense(item.licenseRequired)) return '';
+  const def=getLicenseDef(item.licenseRequired);
+  return def ? `${def.icon} ${def.name}` : `Лицензия ${item.licenseRequired}`;
+}
+function getAbsDay(){ return (G.day||1) + ((G.month||1)-1)*30 + ((G.year||2450)-2450)*360; }
+function pushHistory(kind, title, details=''){
+  if(!Array.isArray(G.historyLog)) G.historyLog=[];
+  const iconMap={
+    trade:'💱', sale:'🛒', travel:'🛰️', quest:'📋', debt:'🏦', bankruptcy:'⚠️',
+    license:'📜', career:'🧭', ability:'✨', base:'🏗️', invasion:'🛡️', story:'📖'
+  };
+  G.historyLog.unshift({
+    id:`hist_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+    kind, icon:iconMap[kind]||'•', title, details,
+    day:G.day, month:G.month, year:G.year, hour:G.hour, minute:G.minute,
+    system:G.sys, galaxy:G.gal,
+  });
+  G.historyLog = G.historyLog.slice(0, 120);
+}
+function getCareerAbility(){ return getCareerProfile()?.ability || null; }
+function getCareerCooldownLeft(){
+  const ab=getCareerAbility(); if(!ab) return 0;
+  const readyDay=(G.careerCooldowns||{})[ab.id]||0;
+  return Math.max(0, readyDay - getAbsDay());
+}
+function useCareerAbility(){
+  const ab=getCareerAbility();
+  if(!ab){ toast('Способность недоступна','bad'); return; }
+  const left=getCareerCooldownLeft();
+  if(left>0){ toast(`Перезарядка: ${left} дн.`, 'warn'); return; }
+  const nowDay=getAbsDay();
+  if(!G.careerCooldowns) G.careerCooldowns={};
+  G.careerCooldowns[ab.id]=nowDay+(ab.cooldownDays||3);
+  if(!G.tempBuffs) G.tempBuffs={};
+  if(G.career==='trader'){
+    G.tempBuffs.marketBoostUntil=nowDay+2;
+    toast('📈 Рынок на вашей стороне 2 дня','good');
+    pushHistory('ability','Активирована способность торговца','На 2 дня улучшены цены покупки и продажи.');
+  }else if(G.career==='hunter'){
+    G.tempBuffs.battleBoostUntil=nowDay+2;
+    G.missiles=Math.min((G.maxMissiles||3)+2, (G.missiles||0)+2);
+    toast('🎯 Боевой протокол активен','good');
+    pushHistory('ability','Активирована способность охотника','Выданы ракеты и боевой буст на 2 дня.');
+  }else if(G.career==='scientist'){
+    const rp=40+getCareerLevel()*8;
+    G.rp+=rp;
+    G.tempBuffs.scanBoostUntil=nowDay+2;
+    toast(`🧪 Глубокое сканирование: +${fmt(rp)} НО`,'good');
+    pushHistory('ability','Активирована способность исследователя',`Получено ${fmt(rp)} НО и бафф сканирования.`);
+  }else if(G.career==='commander'){
+    addInfluence(8+getCareerLevel());
+    addHonor(3);
+    G.tempBuffs.commandBoostUntil=nowDay+2;
+    toast('🛰️ Союзники получили приказ и усилили сектор','good');
+    pushHistory('ability','Активирована способность командора','Усилено влияние и командный отклик.');
+  }
+  renderMoreTab?.(); updateHUD?.();
+}
+
+function calcCargoMarketValue(){
+  const sys=getSystemById(G.sys);
+  const pIdx=getCurrentPlanetIndex(G.sys);
+  return Object.entries(G.cargo||{}).reduce((sum,[gId,qty])=>sum + getPlanetSalePrice(sys.id, pIdx, gId) * (qty||0), 0);
+}
+
+function calcNetWorth(){
+  const credits=G.cr||0;
+  const cargo=calcCargoMarketValue();
+  const baseLevel=getBaseLevel?.()||0;
+  const baseModules=(G.base && G.base.modules) ? Object.values(G.base.modules).reduce((a,b)=>a+(b||0),0) : 0;
+  const baseValue=(baseLevel*2500)+(baseModules*1800);
+  const equipValue=(Array.isArray(G.owned_equip)?G.owned_equip:[]).reduce((sum,id)=>{
+    const item=(typeof getEquipCatalog==='function'?getEquipCatalog().find(x=>x.id===id):null);
+    return sum + Number(item?.cost||0);
+  },0);
+  const debt=Math.ceil(G.debt||0);
+  return Math.max(0, Math.round(credits + cargo + baseValue + equipValue - debt));
+}
+
+function getEconomySnapshot(){
+  const deals=G.tradeStats?.marketDeals||0;
+  const profit=G.tradeStats?.profit||0;
+  const loss=G.tradeStats?.loss||0;
+  const soldUnits=G.tradeStats?.soldUnits||0;
+  const avgMargin = soldUnits>0 ? Math.round((profit-loss)/soldUnits) : 0;
+  const debt=Math.ceil(G.debt||0);
+  const dueIn=debt>0 ? Math.max(0,(G.debtDueDay||0)-getAbsDay()) : 0;
+  const invasion=G.alienInvasion ? `${G.alienInvasion.systemId||G.sys} · волна ${G.alienInvasion.wave}/${G.alienInvasion.maxWave}` : 'нет';
+  const riskFlags=[];
+  if(debt>0 && dueIn<=3) riskFlags.push('Скоро платёж по долгу');
+  if((G.honor||0)<0) riskFlags.push('Низкая честь ухудшает рынок');
+  if((G.influence||0)<0) riskFlags.push('Отрицательное влияние режет контракты');
+  if(G.alienInvasion) riskFlags.push('Идёт вторжение');
+  if((calcCargoUsed?.()||0) >= (calcCargoMax?.()||0)) riskFlags.push('Трюм заполнен');
+  return {
+    netWorth: calcNetWorth(),
+    cargoValue: calcCargoMarketValue(),
+    deals, profit, loss, soldUnits, avgMargin,
+    debt, dueIn,
+    influence:G.influence||0,
+    honor:G.honor||0,
+    baseIncome:(getBaseLevel?.()||0)*15 + ((G.landPlots&&Object.values(G.landPlots).reduce((a,p)=>a+((p?.level||0)*5),0))||0),
+    invasion,
+    riskFlags,
+  };
+}
+
+function getTempBuffMult(kind){
+  const nowDay=getAbsDay();
+  if(kind==='buy' && (G.tempBuffs?.marketBoostUntil||0) >= nowDay) return 0.94;
+  if(kind==='sell' && (G.tempBuffs?.marketBoostUntil||0) >= nowDay) return 1.08;
+  if(kind==='combatAtk' && (G.tempBuffs?.battleBoostUntil||0) >= nowDay) return 1.18;
+  if(kind==='combatDef' && (G.tempBuffs?.battleBoostUntil||0) >= nowDay) return 1.12;
+  if(kind==='rp' && (G.tempBuffs?.scanBoostUntil||0) >= nowDay) return 1.25;
+  if(kind==='influence' && (G.tempBuffs?.commandBoostUntil||0) >= nowDay) return 1.35;
+  return 1;
+}
+function getBaseLevel(){ return Math.max(0, G.base?.level||0); }
+function getBaseModuleLevel(id){ return Math.max(0, G.base?.modules?.[id]||0); }
+function getBaseUpgradeCost(id){
+  const def=BASE_UPGRADES?.[id]; if(!def) return 0;
+  const lvl=getBaseModuleLevel(id);
+  return Math.round((def.cost||0) * Math.pow(1.8, lvl));
+}
+function buyBaseUpgrade(id){
+  const def=BASE_UPGRADES?.[id]; if(!def) return;
+  const lvl=getBaseModuleLevel(id);
+  if(lvl>=(def.maxLevel||5)){ toast('Макс. уровень', 'warn'); return; }
+  const cost=getBaseUpgradeCost(id);
+  if((G.cr||0)<cost){ toast('Недостаточно кредитов','bad'); return; }
+  G.cr-=cost;
+  if(!G.base) G.base={level:0,modules:{},storage:0};
+  if(!G.base.modules) G.base.modules={};
+  G.base.modules[id]=lvl+1;
+  G.base.level=Math.max(G.base.level||0, ...Object.values(G.base.modules));
+  pushHistory('base',`Улучшение базы: ${def.name}`,`Достигнут уровень ${lvl+1}.`);
+  toast(`${def.icon} ${def.name} ур.${lvl+1}`,'good');
+  updateHUD?.(); renderMoreTab?.();
+}
+function takeLoan(){
+  if((G.debt||0)>0){ toast('Сначала погасите текущий долг','warn'); return; }
+  const amount=5000 + getCareerLevel()*3000 + (G.influence||0)*50;
+  G.debt=amount;
+  G.debtDueDay=getAbsDay()+12;
+  G.debtRate=0.08;
+  G.cr+=amount;
+  pushHistory('debt','Получен кредит',`Сумма ${fmt(amount)} кр, срок 12 дней.`);
+  toast(`🏦 Кредит получен: ${fmt(amount)} кр`,'good');
+  updateHUD?.(); renderMoreTab?.();
+}
+function repayDebt(){
+  const debt=Math.ceil(G.debt||0);
+  if(debt<=0){ toast('Долга нет','warn'); return; }
+  if((G.cr||0)<debt){ toast('Недостаточно кредитов для погашения','bad'); return; }
+  G.cr-=debt;
+  G.debt=0; G.debtDueDay=0;
+  addHonor(2); addInfluence(2);
+  pushHistory('debt','Долг погашен',`Выплачено ${fmt(debt)} кр.`);
+  toast('🏦 Долг погашен','good');
+  updateHUD?.(); renderMoreTab?.();
+}
+function applyDebtDaily(){
+  if(!(G.debt>0)) return;
+  G.debt=Math.ceil(G.debt * (1 + (G.debtRate||0)/12));
+  if(getAbsDay() > (G.debtDueDay||0)){
+    addHonor(-2); addInfluence(-2);
+    if((G.cr||0) < G.debt*0.2) triggerBankruptcy();
+  }
+}
+function triggerBankruptcy(){
+  G.bankruptcies=(G.bankruptcies||0)+1;
+  const loss=Math.min(G.cr||0, Math.ceil((G.debt||0)*0.35));
+  G.cr=Math.max(0, (G.cr||0)-loss);
+  G.debt=Math.ceil((G.debt||0)*0.55);
+  addHonor(-8); addInfluence(-6);
+  if(G.cargo){
+    Object.keys(G.cargo).slice(0,3).forEach(k=>delete G.cargo[k]);
+  }
+  pushHistory('bankruptcy','Банкротство',`Потеряно ${fmt(loss)} кр и часть груза. Остаток долга: ${fmt(G.debt)} кр.`);
+  toast('💥 Банкротство! Часть груза и кредитов потеряна.','bad');
+}
+function getStoryMissionState(id){ return G.storyProgress?.[id] || {claimed:false}; }
+function getStoryMetric(m){
+  if(m.check==='sell_units') return G.tradeStats?.soldUnits||0;
+  if(m.check==='license_count') return Object.keys(G.licenses||{}).length;
+  if(m.check==='invasion_wins') return G.storyStats?.invasionWins||0;
+  if(m.check==='base_level') return G.base?.level||0;
+  return 0;
+}
+function canClaimStoryMission(id){
+  const m=(STORY_MISSIONS||[]).find(x=>x.id===id); if(!m) return false;
+  const st=getStoryMissionState(id); if(st.claimed) return false;
+  return getStoryMetric(m) >= (m.target||1);
+}
+function claimStoryMission(id){
+  const m=(STORY_MISSIONS||[]).find(x=>x.id===id); if(!m) return;
+  if(!canClaimStoryMission(id)){ toast('Цель ещё не выполнена','warn'); return; }
+  if(!G.storyProgress) G.storyProgress={};
+  G.storyProgress[id]={claimed:true, day:getAbsDay()};
+  const r=m.reward||{};
+  if(r.cr) G.cr+=r.cr;
+  if(r.rp) G.rp+=r.rp;
+  if(r.influence) addInfluence(r.influence);
+  if(r.honor) addHonor(r.honor);
+  if(r.item){
+    G.cargo[r.item]=(G.cargo[r.item]||0)+1;
+  }
+  pushHistory('story','Сюжетная цель выполнена',m.title);
+  toast(`📖 Сюжет: ${m.title}`,'good');
+  renderMoreTab?.(); updateHUD?.();
+}
+function resolveAlienInvasion(){
+  if(!G.alienInvasion){ toast('Вторжений нет','warn'); return; }
+  const inv=G.alienInvasion;
+  const power=calcAttack()+calcDefense()+G.lvl*6+(getBaseModuleLevel('defense')*20);
+  const target=90 + inv.wave*55 + inv.strength*25;
+  if(power >= target){
+    const reward=2500 + inv.wave*1200 + inv.strength*800;
+    G.cr+=reward; G.totalCr+=reward; G.rp+=20+inv.wave*8;
+    addHonor(4); addInfluence(5);
+    G.storyStats.invasionWins=(G.storyStats.invasionWins||0)+1;
+    if(inv.wave>=inv.maxWave){
+      toast(`👾 Вторжение отражено! +${fmt(reward)} кр`,'good');
+      G.alienInvasion=null;
+    }else{
+      inv.wave+=1;
+      toast(`⚔️ Волна ${inv.wave-1} отбита. Следующая приближается.`,`good`);
+    }
+  }else{
+    G.hull=Math.max(1, G.hull - Math.max(10, inv.wave*8));
+    addHonor(-2);
+    toast('👾 Враг отброшен не был. Корпус повреждён.','bad');
+  }
+  renderMoreTab?.(); updateHUD?.();
+}
+function addTradeReputation(profit, item, qty=1){
+  const units=Math.max(1, qty|0);
+  if(profit>=0){
+    addInfluence(Math.max(1, Math.min(5, Math.round(profit/400)+1)));
+    if(item?.category==='military' || item?.category==='science') addHonor(1);
+    addCareerXP(8+Math.min(18, units*2));
+    G.tradeStats.profit=(G.tradeStats.profit||0)+profit;
+  }else{
+    addInfluence(-Math.min(3, Math.ceil(Math.abs(profit)/500)));
+    addHonor(-1);
+    G.tradeStats.loss=(G.tradeStats.loss||0)+Math.abs(profit);
+  }
+  G.tradeStats.soldUnits=(G.tradeStats.soldUnits||0)+units;
+  G.tradeStats.marketDeals=(G.tradeStats.marketDeals||0)+1;
+}
+
+function getSystemGoods(sys){ return (sys?.goods||[]).map(getMarketItem).filter(Boolean); }
+function getSystemById(sysId){ return SYSTEMS.find(s=>s.id===sysId) || SYSTEMS[0]; }
+function getPlanetCount(sys){ return Math.max(1, (sys?.planets||[]).length || 1); }
+function getCurrentPlanetIndex(sysId=G.sys){
+  if(!G.currentPlanetBySystem) G.currentPlanetBySystem={};
+  if(!Number.isInteger(G.currentPlanetBySystem[sysId])) G.currentPlanetBySystem[sysId]=0;
+  return G.currentPlanetBySystem[sysId];
+}
+function setCurrentPlanetIndex(idx, sysId=G.sys){
+  const sys=getSystemById(sysId);
+  const max=getPlanetCount(sys)-1;
+  if(!G.currentPlanetBySystem) G.currentPlanetBySystem={};
+  G.currentPlanetBySystem[sysId]=Math.max(0, Math.min(max, idx|0));
+}
+function getPlanetType(sys, idx){
+  const rotation=(typeof SYSTEM_PLANET_ROTATION!=='undefined' && SYSTEM_PLANET_ROTATION[sys?.type]) || ['urban'];
+  return rotation[idx % rotation.length] || rotation[0] || 'urban';
+}
+function getPlanetProfile(sys, idx){
+  const type=getPlanetType(sys, idx);
+  const profile=(typeof PLANET_TYPE_PROFILES!=='undefined' && PLANET_TYPE_PROFILES[type]) || PLANET_TYPE_PROFILES?.urban || {name:'Обычная',tax:3,risk:1,mods:{}};
+  return {type, ...profile};
+}
+function getPlanetLabel(sys, idx){
+  const emoji=(sys?.planets||[])[idx] || sys?.emoji || '🪐';
+  const profile=getPlanetProfile(sys, idx);
+  return `${emoji} ${profile.name}`;
+}
+function ensurePlanetEconomy(sysId){
+  const sys=getSystemById(sysId);
+  if(!G.planetMarket) G.planetMarket={};
+  if(!G.planetPrices) G.planetPrices={};
+  if(!G.planetPriceHistory) G.planetPriceHistory={};
+  if(!G.planetMarket[sysId]) G.planetMarket[sysId]={};
+  if(!G.planetPrices[sysId]) G.planetPrices[sysId]={};
+  if(!G.planetPriceHistory[sysId]) G.planetPriceHistory[sysId]={};
+  for(let idx=0; idx<getPlanetCount(sys); idx++){
+    if(!G.planetMarket[sysId][idx]) G.planetMarket[sysId][idx]={};
+    if(!G.planetPrices[sysId][idx]) G.planetPrices[sysId][idx]={};
+    if(!G.planetPriceHistory[sysId][idx]) G.planetPriceHistory[sysId][idx]={};
+    const profile=getPlanetProfile(sys, idx);
+    (sys.goods||[]).forEach(gId=>{
+      if(!G.planetMarket[sysId][idx][gId]){
+        G.planetMarket[sysId][idx][gId]={
+          demand: +(0.9+Math.random()*0.25).toFixed(2),
+          supply: +(0.9+Math.random()*0.25).toFixed(2),
+          variance: +(0.94+Math.random()*0.12).toFixed(2),
+          type: profile.type,
+        };
+      }
+      if(!G.planetPrices[sysId][idx][gId]){
+        G.planetPrices[sysId][idx][gId]=computePlanetPrice(sysId, idx, gId);
+      }
+      if(!G.planetPriceHistory[sysId][idx][gId]) G.planetPriceHistory[sysId][idx][gId]=[];
+    });
+  }
+}
+function computePlanetPrice(sysId, idx, gId){
+  const sys=getSystemById(sysId);
+  const profile=getPlanetProfile(sys, idx);
+  const state=G.planetMarket?.[sysId]?.[idx]?.[gId] || {demand:1,supply:1,variance:1};
+  const base=getGoodBasePrice(gId)||1;
+  const mod=(profile.mods && profile.mods[gId]) || 1;
+  const demandFactor=Math.max(0.78, Math.min(1.35, (state.demand||1)/(state.supply||1)));
+  const galaxyDanger=(GALAXIES.find(g=>g.id===sys.gal)?.danger||1);
+  const systemFactor=1 + ((sys.pc||0) * 0.18) + ((galaxyDanger-1)*0.03);
+  return Math.max(5, Math.round(base * mod * demandFactor * systemFactor * (state.variance||1)));
+}
+function getPlanetPrice(sysId, idx, gId){
+  ensurePlanetEconomy(sysId);
+  const p=G.planetPrices?.[sysId]?.[idx]?.[gId];
+  return p || computePlanetPrice(sysId, idx, gId);
+}
+function updatePlanetPrice(sysId, idx, gId){
+  ensurePlanetEconomy(sysId);
+  const price=computePlanetPrice(sysId, idx, gId);
+  G.planetPrices[sysId][idx][gId]=price;
+  const hist=G.planetPriceHistory[sysId][idx][gId] || (G.planetPriceHistory[sysId][idx][gId]=[]);
+  hist.push(price);
+  if(hist.length>8) hist.shift();
+  return price;
+}
+function getPlanetMarketState(sysId, idx, gId){
+  ensurePlanetEconomy(sysId);
+  return G.planetMarket[sysId][idx][gId];
+}
+
+function getPlanetSalePrice(sysId, idx, gId){
+  const sys=getSystemById(sysId);
+  const profile=getPlanetProfile(sys, idx);
+  const price=getPlanetPrice(sysId, idx, gId);
+  const taxMul=1-((profile.tax||0)/100);
+  const item=getMarketItem(gId);
+  const career=getCareerProfile();
+  let mul=1+gSkill('trade')*0.03;
+  if(career.sellMul) mul*=career.sellMul;
+  if(career.id==='hunter' && item?.category==='military') mul*=1.05;
+  if(career.id==='scientist' && item?.category==='science') mul*=1.04;
+  if(career.id==='commander' && career.influenceMul) mul*=1.01;
+  mul*=1+Math.max(-0.05, Math.min(0.12, (G.influence||0)*0.002));
+  mul*=1+Math.max(-0.05, Math.min(0.08, (G.honor||0)*0.0015));
+  mul*=getTempBuffMult('sell');
+  return Math.max(0, Math.round(price*mul*taxMul));
+}
+
+function getPlanetBuyPrice(sysId, idx, gId){
+  const sys=getSystemById(sysId);
+  const profile=getPlanetProfile(sys, idx);
+  const price=getPlanetPrice(sysId, idx, gId);
+  const item=getMarketItem(gId);
+  const career=getCareerProfile();
+  let mul=(1-gSkill('eloquence')*0.02)*(1+((profile.tax||0)/100));
+  if(career.buyMul) mul*=career.buyMul;
+  if(career.id==='hunter' && item?.category==='military' && career.militaryBuyMul) mul*=career.militaryBuyMul;
+  if(career.id==='scientist' && item?.category==='science' && career.scienceBuyMul) mul*=career.scienceBuyMul;
+  mul*=1-Math.max(-0.02, Math.min(0.1, (G.influence||0)*0.0015));
+  mul*=1-Math.max(-0.02, Math.min(0.06, (G.honor||0)*0.001));
+  mul*=getTempBuffMult('buy');
+  return Math.max(0, Math.round(price*mul));
+}
+
+function getNearbySystems(sysId=G.sys, limit=5){
+  const from=getSystemById(sysId);
+  return SYSTEMS.filter(s=>s.id!==from.id && s.gal===from.gal)
+    .map(s=>({sys:s, dist:Math.hypot((s.x||0)-(from.x||0),(s.y||0)-(from.y||0))}))
+    .sort((a,b)=>a.dist-b.dist)
+    .slice(0, limit)
+    .map(p=>p.sys);
+}
+
+function calculateProfit(gId, fromSysId=G.sys, fromPlanetIdx=getCurrentPlanetIndex(fromSysId), toSysId, toPlanetIdx=0, basis='buy'){
+  const fromSys=getSystemById(fromSysId);
+  const toSys=getSystemById(toSysId||fromSysId);
+  const buyPrice=basis==='cargo' && G.cargoCost?.[gId] ? Number(G.cargoCost[gId]) : getPlanetBuyPrice(fromSys.id, fromPlanetIdx, gId);
+  const salePrice=getPlanetSalePrice(toSys.id, toPlanetIdx, gId);
+  const fuelCost=calcFuelCost(toSys);
+  const net=Math.round(salePrice - buyPrice - fuelCost);
+  return { goodId:gId, fromSysId:fromSys.id, fromPlanetIdx, toSysId:toSys.id, toPlanetIdx, buyPrice, salePrice, fuelCost, net };
+}
+
+function getBestTradeOpportunity(gId, fromSysId=G.sys, fromPlanetIdx=getCurrentPlanetIndex(fromSysId), basis='buy'){
+  const fromSys=getSystemById(fromSysId);
+  const options=[];
+  SYSTEMS.filter(s=>s.id!==fromSys.id).forEach(sys=>{
+    for(let idx=0; idx<getPlanetCount(sys); idx++) options.push(calculateProfit(gId, fromSys.id, fromPlanetIdx, sys.id, idx, basis));
+  });
+  options.sort((a,b)=>b.net-a.net);
+  return options[0] || null;
+}
+
+function getMarketRumors(sysId=G.sys){
+  const sys=getSystemById(sysId);
+  const goods=(sys.goods||[]).map(gId=>({
+    gId,
+    best:getBestTradeOpportunity(gId, sys.id, getCurrentPlanetIndex(sys.id), 'buy'),
+    state:getPlanetMarketState(sys.id, getCurrentPlanetIndex(sys.id), gId),
+  }));
+  const rumors=[];
+  goods.sort((a,b)=>(b.best?.net||-9999)-(a.best?.net||-9999));
+  const top=goods[0];
+  if(top?.best && top.best.net>0){
+    const targetSys=getSystemById(top.best.toSysId);
+    rumors.push(`💡 ${getGoodName(top.gId)} выгодно везти на ${targetSys.name}: до ${fmt(top.best.net)} кр чистыми за единицу.`);
+  }
+  const shortage=goods
+    .filter(x=>(x.state?.demand||1)>(x.state?.supply||1)+0.08)
+    .sort((a,b)=>((b.state?.demand||1)-(b.state?.supply||1))-((a.state?.demand||1)-(a.state?.supply||1)))[0];
+  if(shortage) rumors.push(`📈 На ${getPlanetLabel(sys, getCurrentPlanetIndex(sys.id))} растёт спрос на ${getGoodName(shortage.gId)}.`);
+  const glut=goods
+    .filter(x=>(x.state?.supply||1)>(x.state?.demand||1)+0.08)
+    .sort((a,b)=>((b.state?.supply||1)-(b.state?.demand||1))-((a.state?.supply||1)-(a.state?.demand||1)))[0];
+  if(glut) rumors.push(`📉 На рынке избыток товара ${getGoodName(glut.gId)} — цена может просесть.`);
+  if(typeof RANDOM_EVENTS!=='undefined' && Array.isArray(RANDOM_EVENTS) && RANDOM_EVENTS.length){
+    const ev=RANDOM_EVENTS[(G.day + G.hour + sys.id.length) % RANDOM_EVENTS.length];
+    rumors.push(`${ev.icon} Слух дня: ${ev.name.toLowerCase()} — ${ev.desc}`);
+  }
+  return rumors.slice(0,3);
 }
 
 
@@ -59,46 +500,56 @@ function initPrices(){
   SYSTEMS.forEach(sys=>{
     if(!G.prices[sys.id]) G.prices[sys.id]={};
     if(!G.priceHistory[sys.id]) G.priceHistory[sys.id]={};
-    _sysGoods(sys).forEach(gId=>{
-      const base=_goodBase(gId);
-      if(!G.prices[sys.id][gId])
-        G.prices[sys.id][gId]=base>0?Math.round(base*(0.65+Math.random()*0.7)):10;
+    ensurePlanetEconomy(sys.id);
+    const curIdx=getCurrentPlanetIndex(sys.id);
+    (sys.goods||[]).forEach(gId=>{
+      G.prices[sys.id][gId]=getPlanetPrice(sys.id, curIdx, gId);
       if(!G.priceHistory[sys.id][gId]) G.priceHistory[sys.id][gId]=[];
+      G.priceHistory[sys.id][gId]=[G.prices[sys.id][gId]];
     });
   });
 }
-// initPrices() called once from ui.js after all scripts loaded
+initPrices(); // run immediately before tick starts
+
 
 function fluctuatePrices(bigEvent=false){
   SYSTEMS.forEach(sys=>{
-    if(!G.prices[sys.id]) G.prices[sys.id]={};
-    if(!G.priceHistory[sys.id]) G.priceHistory[sys.id]={};
-    _sysGoods(sys).forEach(gId=>{
-      const base=_goodBase(gId)||0, cur=G.prices[sys.id][gId]||base;
-      if(!base) return;
-      let change=(Math.random()-.5)*(bigEvent?0.35:0.12);
-      if(sys.type==='mining'&&(gId==='ore'||gId==='minerals')) change-=0.05;
-      if(sys.type==='trade'&&(gId==='tech'||gId==='food')) change-=0.04;
-      if(sys.type==='danger'&&gId==='weapons') change-=0.06;
-      const newP=Math.max(Math.round(base*.3),Math.min(Math.round(base*3),Math.round(cur*(1+change))));
-      G.prices[sys.id][gId]=newP;
-      if(!G.priceHistory[sys.id][gId]) G.priceHistory[sys.id][gId]=[];
-      G.priceHistory[sys.id][gId].push(newP);
-      if(G.priceHistory[sys.id][gId].length>5) G.priceHistory[sys.id][gId].shift();
+    ensurePlanetEconomy(sys.id);
+    for(let idx=0; idx<getPlanetCount(sys); idx++){
+      (sys.goods||[]).forEach(gId=>{
+        const state=getPlanetMarketState(sys.id, idx, gId);
+        if(!state) return;
+        state.demand=Math.max(0.7, Math.min(1.35, state.demand + ((Math.random()-.5)*(bigEvent?0.18:0.08))));
+        state.supply=Math.max(0.7, Math.min(1.35, state.supply + ((Math.random()-.5)*(bigEvent?0.2:0.1))));
+        if(sys.type==='mining' && (gId==='ore' || gId==='minerals')) state.supply=Math.min(1.45, state.supply+0.04);
+        if(sys.type==='trade' && (gId==='food' || gId==='tech')) state.supply=Math.min(1.45, state.supply+0.03);
+        if(sys.type==='science' && gId==='tech') state.supply=Math.min(1.45, state.supply+0.04);
+        if(sys.type==='danger' && gId==='weapons') state.demand=Math.min(1.45, state.demand+0.05);
+        updatePlanetPrice(sys.id, idx, gId);
+      });
+    }
+    const curIdx=getCurrentPlanetIndex(sys.id);
+    (sys.goods||[]).forEach(gId=>{
+      G.prices[sys.id][gId]=getPlanetPrice(sys.id, curIdx, gId);
+      const hist=G.priceHistory[sys.id][gId] || (G.priceHistory[sys.id][gId]=[]);
+      hist.push(G.prices[sys.id][gId]);
+      if(hist.length>8) hist.shift();
     });
   });
   const numTraders=G.rangers['trader']||0;
   if(numTraders>0){
     for(let i=0;i<numTraders*2;i++){
       const sys=SYSTEMS[Math.floor(Math.random()*SYSTEMS.length)];
-      const goods=_sysGoods(sys);
-      const good=goods[Math.floor(Math.random()*goods.length)];
-      if(!good||!G.prices[sys.id]) continue;
-      const base=_goodBase(good)||0, cur=G.prices[sys.id][good]||base;
-      if(!base) continue;
-      G.prices[sys.id][good]=Math.max(Math.round(base*.3),Math.min(Math.round(base*3),Math.round(cur*(1+(Math.random()-.5)*0.08))));
+      ensurePlanetEconomy(sys.id);
+      const idx=Math.floor(Math.random()*getPlanetCount(sys));
+      const good=sys.goods?.[Math.floor(Math.random()*sys.goods.length)];
+      if(!good) continue;
+      const state=getPlanetMarketState(sys.id, idx, good);
+      state.demand=Math.max(0.7, Math.min(1.4, state.demand + (Math.random()-.5)*0.1));
+      state.supply=Math.max(0.7, Math.min(1.4, state.supply + (Math.random()-.5)*0.1));
+      updatePlanetPrice(sys.id, idx, good);
     }
-    G.botActions.unshift(`🤝 Торговцы изменили цены в ${numTraders*2} системах`);
+    G.botActions.unshift(`🤝 Торговцы качнули спрос в ${numTraders*2} планетарных рынках`);
     if(G.botActions.length>10) G.botActions.pop();
   }
 }
@@ -116,11 +567,11 @@ function advanceTime(){
     G.hour=0;G.day++;
     fluctuatePrices(G.day%7===0);
     if(G.day%7===0) toast('📅 Новая неделя! Цены изменились','warn');
-    if(G.day%7===0){ spawnDebris(); } // weekly debris spawn across all systems
-    if(G.day%7===0 && typeof fluctuateEquipPrices==='function') fluctuateEquipPrices(); // weekly equip market prices
     if(G.day>30){ G.day=1; G.month++; }
     if(G.month>12){ G.month=1; G.year++; }
     G.era=ERAS[Math.floor(((G.year-2450)*12+(G.month-1))/6)%ERAS.length];
+    applyDebtDaily();
+    G.rp += (BASE_UPGRADES?.lab?.rpPerLevel||0) * (G.base?.modules?.lab||0);
     checkAlienInvasion();
     leagueSeasonTick();
     harvestLandPlots();
@@ -156,13 +607,17 @@ function refreshQuests(){
       type,sysId:m.sysId,giver:m.name,giverIcon:m.icon,
       reward,xp,rp,expires:absDay+5,progress:0,accepted:false,done:false};
     if(type==='deliver'){
-      const allGoodIds=[...Object.keys(GOODS||{}), ...(globalThis.MARKET_CATALOG||[]).filter(x=>x.questUse!==false).map(x=>x.id)];
-      const good=allGoodIds[Math.floor(Math.random()*allGoodIds.length)];
+      const allGoods=getAllMarketGoods().filter(item=>item.questUse!==false && !item.unique);
+      const sourcePool=allGoods.filter(item=>!item.licenseRequired || hasLicense(item.licenseRequired));
+      const pool=sourcePool.length?sourcePool:allGoods;
+      const picked=pool[Math.floor(Math.random()*pool.length)] || {id:'ore', category:'basic'};
+      const good=picked.id;
       const dest=SYSTEMS.filter(s=>s.id!==m.sysId)[Math.floor(Math.random()*18)];
       const amt=2+Math.floor(Math.random()*5);
       q.need={good,amt,destSys:dest.id};
-      q.title=`Доставить ${_goodName(good)} → ${dest.name}`;
-      q.desc=`Возьмите ${amt}× ${_goodName(good)} и доставьте в систему ${dest.name}. Товар нужно продать там.`;
+      q.contractType=(picked.category==='military'?'military':picked.category==='science'?'science':'civil');
+      q.title=`Доставить ${getGoodName(good)} → ${dest.name}`;
+      q.desc=`Возьмите ${amt}× ${getGoodName(good)} и доставьте в систему ${dest.name}. Контракт: ${q.contractType==='military'?'военный':q.contractType==='science'?'научный':'гражданский'}.`;
       q.icon='📦';q.color='#00c8ff';
     } else if(type==='kill'){
       const tier=Math.min(PIRATES.length-1,Math.floor(G.lvl/5)+1);
@@ -191,34 +646,26 @@ function checkQuestProgress(){
 function completeQuest(q){
   if(q.done) return;
   q.done=true;q.doneDay=G.day;
-  G.cr+=q.reward;G.totalCr+=q.reward;G.xp+=q.xp||20;G.rp+=q.rp||5;
+  const career=getCareerProfile();
+  const reward=Math.round((q.reward||0)*(career.questMul||1));
+  const rpReward=Math.round((q.rp||5)*(career.rpMul||1));
+  G.cr+=reward;G.totalCr+=reward;G.xp+=q.xp||20;G.rp+=rpReward;
   G.completedQ++;
-  G.history=G.history||[];
-  G.history.unshift({type:'quest',id:q.id,title:q.title,day:G.day,month:G.month,year:G.year,reward:q.reward});
-  G.history=G.history.slice(0,100);
-  if(Math.random()<0.35){ G.xeno=(G.xeno||0)+1; toast('💎 Найден ксенокристалл','good'); }
+  if(q.type==='deliver') G.tradeStats.completedContracts=(G.tradeStats.completedContracts||0)+1;
+  addInfluence(q.type==='deliver'?6:4);
+  addHonor(q.type==='deliver'?2:1);
+  addCareerXP(q.type==='deliver'?25:12);
   addPoliceRep(G.gal,5);
   addLeagueScore(20);
-  toast(`🎉 Задание выполнено! +${fmt(q.reward)} кр`,'good');
+  pushHistory('quest','Задание выполнено',`${q.title} · +${fmt(reward)} кр`);
+  toast(`🎉 Задание выполнено! +${fmt(reward)} кр`,'good');
   hapticN('success');updateQuestBadge();
 }
-function acceptQuest(qId){
+function acceptCollect(qId){
   const q=G.quests.find(q=>q.id===qId);
   if(!q||q.accepted||q.done) return;
+  pushHistory('quest','Задание принято',q.title);
   q.accepted=true;toast('📋 Задание принято!');renderQuests();
-}
-function claimDeliverQuest(qId){
-  const q=G.quests.find(q=>q.id===qId);
-  if(!q||q.done||q.type!=='deliver'||!q.accepted) return;
-  if(G.sys!==q.need.destSys){toast('Нужно прибыть в систему назначения','bad');return;}
-  const have=G.cargo?.[q.need.good]||0;
-  if(have<q.need.amt){toast('Недостаточно товара в трюме','bad');return;}
-  G.cargo[q.need.good]-=q.need.amt;
-  if((G.cargo[q.need.good]||0)<=0){ delete G.cargo[q.need.good]; if(G.cargoCost) delete G.cargoCost[q.need.good]; }
-  q.progress=q.need.amt;
-  completeQuest(q);
-  toast(`📦 Груз сдан: ${_goodName(q.need.good)}`,'good');
-  renderQuests(); if(typeof renderTrade==='function' && curScreen==='trade') renderTrade();
 }
 function claimKillQuest(qId){
   const q=G.quests.find(q=>q.id===qId);
@@ -243,105 +690,50 @@ function updateQuestBadge(){
 }
 
 // ── Debris ──
-// Debris is per-system, spawns once per game week, persists until collected or cleared by event
-// Structure: {id, sysId, type, name, icon, reward(cr), rp, spawnDay(absDay)}
-function _absDay(){ return G.day+(G.month-1)*30+(G.year-2450)*360; }
-
-function spawnDebrisForSystem(sysId){
-  if(!G.debrisActive) G.debrisActive=[];
-  // Max 2 debris per system
-  const sysDebris=G.debrisActive.filter(d=>d.sysId===sysId);
-  if(sysDebris.length>=2) return;
-  if(Math.random()>0.4) return;
-  const d=DEBRIS_TYPES[Math.floor(Math.random()*DEBRIS_TYPES.length)];
-  // Convert reward object {ore:5} to credit value using base prices
-  const _debrisRewardCr = typeof d.reward==='object'
-    ? Object.entries(d.reward).reduce((sum,[gId,qty])=>sum+(_goodBase(gId)||20)*qty, 0)
-    : (d.reward||50);
-  G.debrisActive.push({
-    id:`db_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
-    sysId, type:d.id, name:d.name, icon:d.icon,
-    reward:_debrisRewardCr, rp:d.rp,
-    spawnDay:_absDay()
-  });
-}
-
 function spawnDebris(){
-  // Called from weekly tick in advanceTime — spawns for ALL systems, not just current
-  SYSTEMS.forEach(sys=>{
-    spawnDebrisForSystem(sys.id);
-  });
-}
-
-function forceSpawnDebris(){
-  // Instant spawn in current system (for events)
+  if(G.debrisActive.length>=3) return;
+  if(Math.random()>0.3) return;
   const d=DEBRIS_TYPES[Math.floor(Math.random()*DEBRIS_TYPES.length)];
-  if(!G.debrisActive) G.debrisActive=[];
-  const _fDebrisRewardCr = typeof d.reward==='object'
-    ? Object.entries(d.reward).reduce((sum,[gId,qty])=>sum+(_goodBase(gId)||20)*qty, 0)
-    : (d.reward||50);
-  G.debrisActive.push({
-    id:`db_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
-    sysId:G.sys, type:d.id, name:d.name, icon:d.icon,
-    reward:_fDebrisRewardCr, rp:d.rp,
-    spawnDay:_absDay()
-  });
+  G.debrisActive.push({id:`db_${Date.now()}`,type:d.id,name:d.name,icon:d.icon,
+    reward:d.reward,rp:d.rp,expires:Date.now()+d.time*1000});
 }
-
-function clearDebrisForEvent(reason){
-  // Called on war/invasion events — clears some debris
-  if(!G.debrisActive) return;
-  const before=G.debrisActive.length;
-  G.debrisActive=G.debrisActive.filter(()=>Math.random()>0.5);
-  if(before>G.debrisActive.length)
-    toast(`💥 ${reason} уничтожил часть обломков в секторе`,'warn');
-}
-
 function collectDebris(dbId){
-  if(!G.debrisActive) return;
   const i=G.debrisActive.findIndex(d=>d.id===dbId);
   if(i<0) return;
   const d=G.debrisActive[i];
-  if(d.sysId!==G.sys){toast('✈️ Нужно лететь в эту систему','bad');return;}
+  if(Date.now()>d.expires){G.debrisActive.splice(i,1);renderMoreTab();return;}
   G.debrisActive.splice(i,1);
   G.cr+=d.reward;G.totalCr+=d.reward;G.rp+=d.rp;
   // collect quests progress
   G.quests.forEach(q=>{
     if(!q.done&&q.accepted&&q.type==='collect'&&q.need.debrisType===d.type){
       q.progress=(q.progress||0)+1;
+      if(q.progress>=q.need.count) completeQuest(q);
     }
   });
-  toast(`${d.icon} +${fmt(d.reward)} кр · +${d.rp} НО`,'good');haptic('medium');renderMoreTab();
+  toast(`${d.icon} +${fmt(d.reward)} кр`,'good');haptic('medium');renderMoreTab();
 }
 
 // ── Bot rangers ──
 function tickBotRangers(){
-  // Боты не дают прямых кредитов — только НО и прогресс убийств
-  // Майнеры дают очень мало (+1 кр/тик за 1 бота — почти ничего)
   const numMiners=G.rangers['miner_b']||0;
+  const numTraders=G.rangers['trader']||0;
   const numHunters=G.rangers['hunter']||0;
   const numScouts=G.rangers['scout']||0;
-  const numTraders=G.rangers['trader']||0;
   if(numMiners>0){
-    // Очень мало — 1 кр/тик за бота (раньше было 5), смысл — не доход, а дебаффер
-    const earn=numMiners*1;G.cr+=earn;G.totalCr+=earn;
-    if(Math.random()<0.1) G.botActions.unshift(`⛏️ Боты-майнеры: +${fmt(earn)} кр/тик`);
+    const earn=numMiners*5;G.cr+=earn;G.totalCr+=earn;
+    G.botActions.unshift(`⛏️ Майнеры добыли +${fmt(earn)} кр`);
   }
   if(numHunters>0){
-    // Охотники убивают — прогресс заданий, но без наград кредитами
-    G.killCount+=numHunters;
-    addLeagueScore(numHunters);
-    if(Math.random()<0.1) G.botActions.unshift(`🎯 Охотники: +${numHunters} убийств`);
+    const kills=numHunters;G.killCount+=kills;
+    addLeagueScore(kills*2);
+    G.botActions.unshift(`🎯 Охотники убили ${kills} пиратов`);
   }
   if(numScouts>0){
-    // Разведчики дают НО — это ценно но не ломает экономику
-    const rp=numScouts*0.2;G.rp+=rp;
-    if(Math.random()<0.1) G.botActions.unshift(`🔭 Разведчики: +${rp.toFixed(1)} НО`);
+    G.rp+=numScouts*0.5;
+    G.botActions.unshift(`🔭 Разведчики +${(numScouts*0.5).toFixed(1)} НО`);
   }
-  if(numTraders>0){
-    if(Math.random()<0.05) G.botActions.unshift(`🤝 Торговцы: цены колеблются`);
-  }
-  if(G.botActions.length>8) G.botActions=G.botActions.slice(0,8);
+  if(G.botActions.length>10) G.botActions=G.botActions.slice(0,10);
 }
 
 // ── Land Plots ──
@@ -357,6 +749,7 @@ function buyLandPlot(sysId,good){
   G.cr-=cost;
   G.landPlots[sysId]={good,level:level+1,lastHarvestDay:G.day+(G.month-1)*30+(G.year-2450)*360};
   addLeagueScore(100);
+  pushHistory('base','Покупка участка',`${sys.name} · ${getGoodName(good)} · ур.${level+1}`);
   toast(`🌱 Участок куплен в ${sys.name} (ур.${level+1})!`,'good');hapticN('success');
   renderMoreTab();updateHUD();
 }
@@ -379,36 +772,28 @@ function addPoliceRep(gal,amt){
 }
 
 // ── Alien invasions ──
-function getAlienRaceDef(raceId){
-  return {zorg:{id:'zorg',icon:'🟢',name:'ЗORG'},technoid:{id:'technoid',icon:'🔵',name:'Техноиды'},psi:{id:'psi',icon:'🟣',name:'Пси-разум'}}[raceId]||{id:'zorg',icon:'👽',name:'Пришельцы'};
-}
-function getAlienBossId(raceId){
-  return {zorg:'zorg_behemoth',technoid:'tech_dreadnought',psi:'psi_overmind'}[raceId]||'mothership';
-}
-function buildAlienWave(sys,raceId){
-  const pool=ALIEN_TYPES.filter(a=>a.race===raceId && (a.threat||1)<5 && !['zorg_behemoth','tech_dreadnought','psi_overmind','mothership'].includes(a.id));
-  const scouts=pool.filter(a=>(a.threat||1)<=1);
-  const elites=pool.filter(a=>(a.threat||1)===2);
-  const commanders=pool.filter(a=>(a.threat||1)>=3);
-  const pick=arr=>{ const src=arr.length?arr:pool; return src[Math.floor(Math.random()*src.length)].id; };
-  const ids=[];
-  for(let i=0;i<5+Math.floor(Math.random()*2);i++) ids.push(pick(scouts));
-  for(let i=0;i<3;i++) ids.push(pick(elites));
-  ids.push(pick(commanders));
-  if(Math.random()<0.45) ids.push(pick(commanders));
-  return { alienIds:ids, bossId:getAlienBossId(raceId) };
-}
 function checkAlienInvasion(){
-  G.alienInvasion=normalizeAlienInvasion(G.alienInvasion||alienInvasion);
-  alienInvasion=G.alienInvasion;
-  SYSTEMS.filter(s=>s.type==='danger'||s.gal==='gamma'||s.gal==='chaos'||s.gal==='delta'||s.gal==='omega').forEach(sys=>{
-    if(Math.random()<0.04&&!G.alienInvasion){
-      const raceId=['zorg','technoid','psi'][Math.floor(Math.random()*3)];
-      const race=getAlienRaceDef(raceId);
-      const wave=buildAlienWave(sys,raceId);
-      G.alienInvasion={sysId:sys.id,race:race.id,raceIcon:race.icon,raceName:race.name,spawnDay:G.day,alienIds:wave.alienIds,bossId:wave.bossId,bossUnlocked:false,bossDefeated:false,progress:0,totalTargets:wave.alienIds.length+1,alienId:wave.alienIds[0]};
-      alienInvasion=G.alienInvasion;
-      clearDebrisForEvent('Вторжение пришельцев');
+  if(G.alienInvasion){
+    const inv=G.alienInvasion;
+    const age=getAbsDay() - (inv.spawnAbsDay||getAbsDay());
+    if(age>0 && age%2===0 && inv.wave < inv.maxWave){
+      inv.wave += 1;
+      inv.strength += 1;
+      toast(`👾 Вторжение усиливается: волна ${inv.wave}/${inv.maxWave}`,'bad');
+    }
+    if(age>=6 && inv.wave>=inv.maxWave){
+      if(!G.capturedSystems.includes(inv.sysId)) G.capturedSystems.push(inv.sysId);
+      addHonor(-5);
+      toast('⚠️ Система частично потеряна из-за вторжения','bad');
+      G.alienInvasion=null;
+    }
+    return;
+  }
+  SYSTEMS.filter(s=>s.type==='danger'||s.gal==='gamma'||s.gal==='chaos').forEach(sys=>{
+    const baseChance=0.04 - Math.min(0.02, (getBaseModuleLevel('defense')||0)*0.003);
+    if(Math.random()<baseChance && !G.alienInvasion){
+      const race=ALIEN_TYPES[Math.floor(Math.random()*Math.min(ALIEN_TYPES.length, 3))];
+      G.alienInvasion={sysId:sys.id,race:race.id,raceIcon:race.icon,raceName:race.name,spawnDay:G.day,spawnAbsDay:getAbsDay(),wave:1,maxWave:3,strength:(GALAXIES.find(g=>g.id===sys.gal)?.danger||1)};
       toast(`👾 Вторжение! ${race.icon}${race.name} в ${sys.name}!`,'bad');
     }
   });
@@ -419,7 +804,7 @@ function onMine(e){
   if(G.energy<=0){toast('⚡ Нет энергии!','bad');hapticN('error');return;}
   const cp=calcClickPower();
   G.energy=Math.max(0,G.energy-1);
-  G.cr+=cp;G.totalCr+=cp;G.xp+=cp*.3;G.rp+=calcRpMult()*.03; // тап = прогресс
+  G.cr+=cp;G.totalCr+=cp;G.xp+=cp*.1;G.rp+=calcRpMult()*.1;
   addLeagueScore(1);
   spawnFloat(e,`+${fmt(cp)}`);
   haptic('light');
@@ -489,44 +874,13 @@ function refuel(){
 
 // ── Game loop ──
 let lastTick=Date.now();
-// Migrate missing fields for older saves
-if(!G.eventHistory)    G.eventHistory=[];
-if(!G.anomalyLog)      G.anomalyLog=[];
-if(!G.storyProgress)   G.storyProgress={};
-if(!G.anomaliesActive) G.anomaliesActive=[];
-if(!G.anomaliesFound)  G.anomaliesFound=0;
-if(!G.history)         G.history=[];
-if(!G.debrisActive)    G.debrisActive=[];
-// Migrate old debris objects (created before sysId/reward refactor)
-G.debrisActive = G.debrisActive.filter(d=>{
-  // Remove expired old-format objects (had 'expires' timestamp)
-  if(d.expires && Date.now() > d.expires) return false;
-  return true;
-}).map(d=>{
-  // Fix missing sysId
-  if(!d.sysId) d.sysId = G.sys || 'sol';
-  // Fix reward if it's still an object
-  if(d.reward && typeof d.reward === 'object'){
-    d.reward = Object.entries(d.reward).reduce((sum,[gId,qty])=>sum+(_goodBase(gId)||20)*qty, 0);
-  }
-  if(!d.reward || isNaN(d.reward)) d.reward = 50;
-  return d;
-});
-if(!G.equipPrices)     G.equipPrices={};
 function tick(){
   const now=Date.now();
   const dt=(now-lastTick)/1000;lastTick=now;
-  // Guard: if G.cr became NaN (e.g. from bad save), reset to 0
-  if(!isFinite(G.cr)||isNaN(G.cr)) G.cr=0;
-  if(!isFinite(G.totalCr)||isNaN(G.totalCr)) G.totalCr=G.cr;
   const cps=calcCPS();
-  if(cps>0&&isFinite(cps)){ 
-    G.cr+=cps*dt;G.totalCr+=cps*dt;
-    G.xp+=cps*dt*.08;
-    G.rp+=calcRpMult()*dt*.005;
-  }
-  G.maxEnergy=Math.floor(150+G.lvl*3);
-  const eRegen=0.5+(gSkill('engineering')*0.05); // faster regen = more fun tapping
+  if(cps>0){ G.cr+=cps*dt;G.totalCr+=cps*dt;G.xp+=cps*dt*.04;G.rp+=calcRpMult()*dt*.03; }
+  G.maxEnergy=Math.floor(50+G.lvl*5);
+  const eRegen=0.18+(gSkill('engineering')*0.02);
   G.energy=Math.min(G.maxEnergy,G.energy+dt*eRegen);
   G.fuel=Math.min(G.maxFuel,G.fuel+dt*0.05);
   if(hasTech('regen'))   G.hull=Math.min(G.maxHull,G.hull+dt*5);
@@ -539,221 +893,10 @@ function tick(){
 setInterval(tick,250);
 setInterval(()=>{
   if(!_uiReady) return;
-  tickBotRangers();
+  spawnDebris();tickBotRangers();
   if(curScreen==='trade') renderTrade();
   if(curScreen==='more')  renderMoreTab();
   if(curScreen==='quest') {checkQuestProgress();renderQuests();}
 },1000);
 setInterval(()=>{ G.lastSave=Date.now();saveG(); },10000);
 setInterval(capturedIncome,5000);
-
-// ═══════════════════════════════════════
-//  RANDOM EVENTS
-// ═══════════════════════════════════════
-function tickRandomEvents(){
-  const absDay=G.day+(G.month-1)*30+(G.year-2450)*360;
-  // expire old event
-  if(G.activeEvent&&G.activeEvent.endsDay<=absDay){
-    toast(`📰 Событие завершено: ${G.activeEvent.name}`,'warn');
-    G.activeEvent=null;
-    if(_uiReady) renderMine();
-  }
-  // spawn new event (chance per day)
-  if(!G.activeEvent&&Math.random()<0.18){
-    if(typeof RANDOM_EVENTS==='undefined' || !Array.isArray(RANDOM_EVENTS) || !RANDOM_EVENTS.length) return;
-    const ev=RANDOM_EVENTS[Math.floor(Math.random()*RANDOM_EVENTS.length)];
-    G.activeEvent={...ev, startDay:absDay, endsDay:absDay+(ev.duration||1)};
-    G.eventHistory.unshift({id:ev.id,name:ev.name,day:absDay});
-    if(G.eventHistory.length>20) G.eventHistory.pop();
-    // instant effects
-    if(ev.effect==='teleport'){
-      const galSys=SYSTEMS.filter(s=>s.gal===G.gal&&s.id!==G.sys);
-      if(galSys.length){ G.sys=galSys[Math.floor(Math.random()*galSys.length)].id; }
-      G.activeEvent=null;
-    } else if(ev.effect==='spawn_debris'){
-      for(let i=0;i<3;i++) forceSpawnDebris();
-    } else if(ev.effect==='price_crash'){
-      fluctuatePrices(true);
-      clearDebrisForEvent('Экономический кризис');
-    }
-    toast(`${ev.icon} Событие: ${ev.name} — ${ev.desc}`,'warn');
-    hapticN('warning');
-  }
-}
-
-// Get current event effect multiplier
-function getEventMult(effect){
-  if(!G.activeEvent) return 1;
-  const e=G.activeEvent;
-  if(e.effect===effect) return e.id==='gold_rush'?3:e.id==='energy_x3'?3:e.id==='fuel_x2'?2:e.id==='police_x2'?2:2;
-  return 1;
-}
-function isEventActive(effect){
-  return !!(G.activeEvent&&G.activeEvent.effect===effect);
-}
-
-// ═══════════════════════════════════════
-//  ANOMALIES
-// ═══════════════════════════════════════
-let anomalySpawnTimer=0;
-function tickAnomalies(){
-  anomalySpawnTimer++;
-  if(anomalySpawnTimer<120) return; // every 30s
-  anomalySpawnTimer=0;
-  if((G.anomaliesActive||[]).length>=2) return;
-  const sys=SYSTEMS.find(s=>s.id===G.sys);
-  if(!sys) return;
-  // higher chance in dangerous/science systems
-  const baseChance=sys.type==='danger'?0.25:sys.type==='science'?0.2:0.1;
-  if(Math.random()>baseChance) return;
-  // pick anomaly by rarity
-  const roll=Math.random();
-  let acc=0;
-  if(typeof ANOMALIES==='undefined' || !Array.isArray(ANOMALIES) || !ANOMALIES.length) return;
-  for(const a of ANOMALIES){
-    acc+=a.rarity;
-    if(roll<acc){
-      if(!G.anomaliesActive) G.anomaliesActive=[];
-      const existing=G.anomaliesActive.find(x=>x.id===a.id);
-      if(existing) return;
-      G.anomaliesActive.push({...a, sysId:G.sys, foundAt:Date.now()});
-      toast(`${a.icon} Аномалия: ${a.name} — ${a.desc}`,'good');
-      break;
-    }
-  }
-}
-
-function exploreAnomaly(anomalyId){
-  if(!G.anomaliesActive) return;
-  const idx=G.anomaliesActive.findIndex(a=>a.id===anomalyId);
-  if(idx<0) return;
-  const a=G.anomaliesActive[idx];
-  if(a.sysId!==G.sys){toast('Аномалия в другой системе','bad');return;}
-  // danger check
-  if(Math.random()<a.danger){
-    const dmg=Math.round(G.maxHull*0.3);
-    G.hull=Math.max(1,G.hull-dmg);
-    toast(`${a.icon} Опасно! -${dmg} ХП корпуса`,'bad');
-    hapticN('error');
-  } else {
-    // apply rewards
-    const r=a.reward||{};
-    if(r.cr){G.cr+=r.cr;G.totalCr+=r.cr;}
-    if(r.rp) G.rp+=r.rp;
-    if(r.energy) G.energy=Math.min(G.maxEnergy,G.energy+r.energy);
-    if(r.minerals){G.cargo.minerals=(G.cargo.minerals||0)+r.minerals;}
-    if(r.tech){G.cargo.tech=(G.cargo.tech||0)+r.tech;}
-    if(r.teleport){
-      const galSys=SYSTEMS.filter(s=>s.gal!==G.gal);
-      if(galSys.length){ const dest=galSys[Math.floor(Math.random()*galSys.length)]; G.sys=dest.id;G.gal=dest.gal; }
-    }
-    G.anomaliesFound=(G.anomaliesFound||0)+1;
-    addLeagueScore(15);
-    const rewardStr=Object.entries(r).filter(([k])=>k!=='teleport').map(([k,v])=>`+${v} ${k}`).join(', ');
-    toast(`${a.icon} ${a.name} исследована! ${rewardStr}`,'good');
-    hapticN('success');
-    G.anomalyLog.unshift({id:a.id,name:a.name,icon:a.icon,reward:r,day:G.day});
-    if(G.anomalyLog.length>15) G.anomalyLog.pop();
-  }
-  G.anomaliesActive.splice(idx,1);
-  if(_uiReady) renderMine();
-  updateHUD();
-}
-
-// ═══════════════════════════════════════
-//  STORY CHAINS
-// ═══════════════════════════════════════
-function getStoryChain(chainId){ if(typeof STORY_CHAINS==='undefined') return null; return STORY_CHAINS.find(c=>c.id===chainId); }
-function getChainProgress(chainId){ return G.storyProgress[chainId]||{step:0,done:false}; }
-
-function startStoryChain(chainId){
-  const chain=getStoryChain(chainId);
-  if(!chain) return;
-  if(G.storyProgress[chainId]?.step>0){toast('Цепочка уже начата','warn');return;}
-  G.storyProgress[chainId]={step:1,done:false};
-  toast(`📖 Начата цепочка: ${chain.title}`,'good');
-  hapticN('success');
-  if(_uiReady) renderMoreTab();
-}
-
-function claimStoryStep(chainId){
-  const chain=getStoryChain(chainId);
-  const prog=getChainProgress(chainId);
-  if(!chain||prog.done) return;
-  const stepIdx=prog.step-1;
-  const step=chain.steps[stepIdx];
-  if(!step) return;
-
-  // Check completion condition
-  let complete=false;
-  if(step.type==='arrive'){ complete=(G.sys===step.sys); }
-  else if(step.type==='deliver'){
-    complete=(G.sys===step.sys&&(G.cargo[step.good]||0)>=step.amt);
-    if(complete){ G.cargo[step.good]=Math.max(0,(G.cargo[step.good]||0)-step.amt); }
-  } else if(step.type==='kill'){
-    complete=(prog.killCount||0)>=step.count;
-  }
-
-  if(!complete){ toast(`Условие не выполнено: ${step.desc}`,'bad'); return; }
-
-  // Give reward
-  G.cr+=step.reward; G.totalCr+=step.reward; G.xp+=step.xp;
-  addLeagueScore(Math.floor(step.xp/5));
-  toast(`✅ ${step.title} — +${fmt(step.reward)} кр`,'good');
-  hapticN('success');
-
-  // Final step?
-  if(step.final){
-    prog.done=true;
-    G.storyProgress[chainId]=prog;
-    // apply final reward
-    if(step.finalReward){
-      const [type,val]=step.finalReward.split(':');
-      if(type==='equip'){
-        if(!G.owned_equip.includes(val)) G.owned_equip.push(val);
-        toast(`🎁 Получено снаряжение: ${EQUIPMENT.find(e=>e.id===val)?.name||val}`,'gold');
-      } else if(type==='credits'){
-        const cr=parseInt(val);G.cr+=cr;G.totalCr+=cr;
-        toast(`🎁 Финальная награда: +${fmt(cr)} кр`,'gold');
-      }
-    }
-    toast(`🏆 Цепочка завершена: ${chain.title}!`,'gold');
-  } else {
-    prog.step++;
-    prog.killCount=0;
-    G.storyProgress[chainId]=prog;
-    toast(`📖 Шаг ${prog.step}/${chain.steps.length}: ${chain.steps[prog.step-1]?.title}`,'good');
-  }
-  if(_uiReady) renderMoreTab();
-}
-
-// Track kills for story step
-function trackStoryKills(){
-  Object.entries(G.storyProgress||{}).forEach(([chainId,prog])=>{
-    if(prog.done) return;
-    const chain=getStoryChain(chainId);
-    const step=chain?.steps[prog.step-1];
-    if(step?.type==='kill'){ prog.killCount=(prog.killCount||0)+1; }
-  });
-}
-
-// ── Plug into advanceTime ──
-const _origAdvanceTime=advanceTime;
-// patch: call new systems each day
-const _patchedTick=tick;
-
-// Inject into daily tick
-setInterval(()=>{
-  tickAnomalies();
-  if(G.day%3===0) tickRandomEvents();
-},5000);
-
-// ── Dev: Reset All Progress ──
-function resetAllProgress(){
-  try{
-    localStorage.removeItem('srw_v4');
-    localStorage.removeItem('srw_v4_bak');
-    localStorage.removeItem('srw_v3');
-  }catch(e){}
-  location.reload();
-}

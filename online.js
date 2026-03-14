@@ -231,16 +231,23 @@ async function renderOnlineRangers(){
       </div>
       <div style="text-align:right">
         <div style="font-size:11px;color:var(--purple)">Ур.${p.lvl}</div>
-        ${!isMe&&currentAlienInvasion()?`<button class="btn btn-sm btn-g" onclick="coopRaid()" style="margin-top:2px">Коопереция</button>`:''}
+        ${!isMe&&alienInvasion?`<button class="btn btn-sm btn-g" onclick="coopRaid()" style="margin-top:2px">Коопереция</button>`:''}
       </div>
     </div>`;
   });
 
-  const inv=currentAlienInvasion();
-  if(inv){
-    const target=ALIEN_TYPES.find(a=>a.id===inv.alienId||((inv.bossUnlocked&&!inv.bossDefeated)?inv.bossId:null));
-    const alSys=SYSTEMS.find(s=>s.id===inv.sysId);
-    h+=`<div style="margin-top:10px;background:rgba(255,45,120,.08);border:1px solid rgba(255,45,120,.3);border-radius:10px;padding:14px"><div style="color:#ff2d78;font-weight:700;margin-bottom:6px">⚠️ АКТИВНОЕ ВТОРЖЕНИЕ</div><div style="font-size:12px;color:var(--muted2)">${target?.icon||'👽'} ${target?.name||'Пришелец'} в системе ${alSys?.name||'?'} · ${inv.bossUnlocked&&!inv.bossDefeated?'Босс доступен':`Осталось целей: ${(inv.alienIds||[]).length}`}</div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-r btn-full" onclick="fightAlien('${target?.id||''}')">⚔️ Атаковать</button><button class="btn btn-g btn-full" onclick="coopRaid('${target?.id||''}')">🤝 Коопреция</button></div></div>`;
+  if(alienInvasion){
+    const al=ALIEN_TYPES.find(a=>a.id===alienInvasion.alienId);
+    const alSys=SYSTEMS.find(s=>s.id===alienInvasion.sysId);
+    h+=`<div style="margin-top:10px;background:rgba(255,45,120,.08);border:1px solid rgba(255,45,120,.3);
+      border-radius:10px;padding:14px">
+      <div style="color:#ff2d78;font-weight:700;margin-bottom:6px">⚠️ АКТИВНОЕ ВТОРЖЕНИЕ</div>
+      <div style="font-size:12px;color:var(--muted2)">${al?.icon||'👽'} ${al?.name||'Пришелец'} в системе ${alSys?.name||'?'}</div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-r btn-full" onclick="fightAlien()">⚔️ Атаковать одному</button>
+        <button class="btn btn-g btn-full" onclick="coopRaid()">🤝 Коопреция</button>
+      </div>
+    </div>`;
   }
 
   // scoring guide
