@@ -208,7 +208,7 @@ function renderTrade(){
     const buyP=Math.round(price*(1-gSkill('eloquence')*.02));
     const canBuy=G.cr>=buyP&&used<G.cargoMax;
     const owned=G.cargo[gId]||0;
-    h+=`<div class="good-row"><div class="gi">${def.icon}</div>
+    h+=`<div class="good-row"><div class="gi">${gIcon}</div>
       <div class="ginfo">
         <div class="gname">${gName}</div>
         <div class="gprice">💰 ${fmt(price)}${buyP<price?` <span style="color:var(--green)">(${fmt(buyP)})</span>`:''}</div>
@@ -954,7 +954,14 @@ function renderLandHTML(){
 // ── Story Chains HTML ──
 function renderStoryHTML(){
   let h=`<div class="sh">📖 Сюжетные цепочки</div>`;
-  STORY_CHAINS.forEach(chain=>{
+  const _chains=(typeof STORY_CHAINS!=='undefined'&&Array.isArray(STORY_CHAINS))?STORY_CHAINS:[];
+  if(!_chains.length){
+    return h+`<div class="card" style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">
+      <div style="font-size:32px;margin-bottom:8px">📖</div>
+      Сюжетные цепочки появятся в следующем обновлении.
+    </div>`;
+  }
+  _chains.forEach(chain=>{
     const prog=G.storyProgress[chain.id]||{step:0,done:false};
     const started=prog.step>0;
     const done=prog.done;

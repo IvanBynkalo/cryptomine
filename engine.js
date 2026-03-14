@@ -254,10 +254,14 @@ function spawnDebrisForSystem(sysId){
   if(sysDebris.length>=2) return;
   if(Math.random()>0.4) return;
   const d=DEBRIS_TYPES[Math.floor(Math.random()*DEBRIS_TYPES.length)];
+  // Convert reward object {ore:5} to credit value using base prices
+  const _debrisRewardCr = typeof d.reward==='object'
+    ? Object.entries(d.reward).reduce((sum,[gId,qty])=>sum+(_goodBase(gId)||20)*qty, 0)
+    : (d.reward||50);
   G.debrisActive.push({
     id:`db_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
     sysId, type:d.id, name:d.name, icon:d.icon,
-    reward:d.reward, rp:d.rp,
+    reward:_debrisRewardCr, rp:d.rp,
     spawnDay:_absDay()
   });
 }
@@ -273,10 +277,13 @@ function forceSpawnDebris(){
   // Instant spawn in current system (for events)
   const d=DEBRIS_TYPES[Math.floor(Math.random()*DEBRIS_TYPES.length)];
   if(!G.debrisActive) G.debrisActive=[];
+  const _fDebrisRewardCr = typeof d.reward==='object'
+    ? Object.entries(d.reward).reduce((sum,[gId,qty])=>sum+(_goodBase(gId)||20)*qty, 0)
+    : (d.reward||50);
   G.debrisActive.push({
     id:`db_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
     sysId:G.sys, type:d.id, name:d.name, icon:d.icon,
-    reward:d.reward, rp:d.rp,
+    reward:_fDebrisRewardCr, rp:d.rp,
     spawnDay:_absDay()
   });
 }
@@ -647,7 +654,7 @@ function exploreAnomaly(anomalyId){
 // ═══════════════════════════════════════
 //  STORY CHAINS
 // ═══════════════════════════════════════
-function getStoryChain(chainId){ return STORY_CHAINS.find(c=>c.id===chainId); }
+function getStoryChain(chainId){ if(typeof STORY_CHAINS==='undefined') return null; return STORY_CHAINS.find(c=>c.id===chainId); }
 function getChainProgress(chainId){ return G.storyProgress[chainId]||{step:0,done:false}; }
 
 function startStoryChain(chainId){
