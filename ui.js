@@ -665,20 +665,42 @@ function renderMarketHTML(){
   ];
   const mktItems = getEquipSection(window.mktCat||'hull');
 
-  let h=`<div class="hero-panel more-head">
-    <div class="hero-top">
+  const _sys=SYSTEMS.find(s=>s.id===G.sys);
+  const _owned=(G.owned_equip||[]).length;
+  const _sellable=(G.owned_equip||[]).filter(id=>!Object.values(G.equip||{}).includes(id)).length;
+  const _curCat=cats.find(c=>c.id===(window.mktCat||'hull'));
+
+  let h=`
+  <div style="background:linear-gradient(135deg,var(--card2),var(--card3));
+    border:1px solid var(--b2);border-radius:14px;padding:14px 16px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
       <div>
-        <div class="hero-kicker">рынок снаряжения · ${SYSTEMS.find(s=>s.id===G.sys)?.name||''}</div>
-        <div class="hero-title">Рынок техники 🏪</div>
-        <div class="hero-sub">Цены меняются каждую игровую неделю. Покупай дёшево — продавай дорого.</div>
+        <div style="font-size:9px;letter-spacing:2px;color:var(--muted2);text-transform:uppercase;margin-bottom:3px">
+          рынок снаряжения · ${_sys?.name||''}
+        </div>
+        <div style="font-size:20px;font-weight:900;color:var(--cyan)">🏪 Рынок техники</div>
+        <div style="font-size:10px;color:var(--muted2);margin-top:3px">
+          Цены меняются каждую неделю · покупай дёшево, продавай дорого
+        </div>
       </div>
-      <div class="hero-icon">💱</div>
+      <div style="text-align:right">
+        <div style="font-family:var(--mono);font-size:22px;color:var(--gold)">${fmt(G.cr)}</div>
+        <div style="font-size:8px;color:var(--muted2);text-transform:uppercase;letter-spacing:1px">кредиты</div>
+      </div>
     </div>
-    <div class="mini-grid">
-      <div class="mini-stat"><div class="l">Кредиты</div><div class="v">${fmt(G.cr)}</div></div>
-      <div class="mini-stat"><div class="l">В ангаре</div><div class="v">${(G.owned_equip||[]).length} ед.</div></div>
-      <div class="mini-stat"><div class="l">Можно продать</div><div class="v">${(G.owned_equip||[]).filter(id=>!Object.values(G.equip||{}).includes(id)).length} ед.</div></div>
-      <div class="mini-stat"><div class="l">Категория</div><div class="v">${cats.find(c=>c.id===window.mktCat)?.label||'—'}</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:7px 10px">
+        <div style="font-size:9px;color:var(--muted2);margin-bottom:2px">В ангаре</div>
+        <div style="font-family:var(--mono);font-size:16px;color:var(--cyan)">${_owned} ед.</div>
+      </div>
+      <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:7px 10px">
+        <div style="font-size:9px;color:var(--muted2);margin-bottom:2px">Продать</div>
+        <div style="font-family:var(--mono);font-size:16px;color:${_sellable>0?'var(--green)':'var(--muted2)'}">${_sellable} ед.</div>
+      </div>
+      <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:7px 10px">
+        <div style="font-size:9px;color:var(--muted2);margin-bottom:2px">Раздел</div>
+        <div style="font-size:13px">${_curCat?.icon||'📦'} ${_curCat?.label||'—'}</div>
+      </div>
     </div>
   </div>`;
 
@@ -1109,55 +1131,6 @@ function renderStoryHTML(){
   }
 
   return h||`<div class="card" style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">Нет цепочек</div>`;
-}
-    const prog=G.storyProgress[chain.id]||{step:0,done:false};
-    const started=prog.step>0;
-    const done=prog.done;
-    const stepIdx=Math.max(0,prog.step-1);
-    const curStep=chain.steps[stepIdx];
-    const pct=done?100:Math.round((stepIdx/chain.steps.length)*100);
-    h+=`<div class="card" style="margin-bottom:10px;border-color:${done?'var(--green)':started?'var(--cyan)':'var(--b1)'}">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <div style="font-size:28px">${chain.icon}</div>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:700">${chain.title}</div>
-          <div style="font-size:10px;color:var(--muted2)">${chain.desc}</div>
-        </div>
-        <div style="text-align:right;font-family:var(--mono);font-size:11px;color:${done?'var(--green)':'var(--muted2)'}">
-          ${done?'✅ Завершено':`${stepIdx}/${chain.steps.length}`}
-        </div>
-      </div>
-      <div style="height:3px;background:var(--b1);border-radius:2px;margin-bottom:8px">
-        <div style="height:100%;background:linear-gradient(90deg,var(--cyan),var(--purple));width:${pct}%;border-radius:2px;transition:width .3s"></div>
-      </div>`;
-    if(!done&&curStep){
-      const canClaim=(curStep.type==='arrive'&&G.sys===curStep.sys)||
-        (curStep.type==='deliver'&&G.sys===curStep.sys&&(G.cargo[curStep.good]||0)>=curStep.amt)||
-        (curStep.type==='kill'&&(prog.killCount||0)>=curStep.count);
-      h+=`<div style="font-size:11px;color:var(--cyan);margin-bottom:4px">
-          ${started?`Шаг ${prog.step}/${chain.steps.length}:`:'Следующий шаг:'} <b>${curStep.title}</b>
-        </div>
-        <div style="font-size:10px;color:var(--muted2);margin-bottom:8px">${curStep.desc}</div>`;
-      if(curStep.type==='deliver') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">
-          📦 Нужно: ${curStep.amt}× ${_goodName(curStep.good)} → система ${SYSTEMS.find(s=>s.id===curStep.sys)?.name}
-          (в трюме: ${G.cargo[curStep.good]||0})
-        </div>`;
-      if(curStep.type==='arrive') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">
-          ✈️ Долетите до: ${SYSTEMS.find(s=>s.id===curStep.sys)?.name}
-          ${G.sys===curStep.sys?'<span style="color:var(--green)">✅ Вы здесь!</span>':''}
-        </div>`;
-      if(curStep.type==='kill') h+=`<div style="font-size:10px;color:var(--gold);margin-bottom:6px">
-          ⚔️ Убито: ${prog.killCount||0}/${curStep.count}
-        </div>`;
-      h+=`<div style="display:flex;gap:6px">
-        ${!started?`<button class="btn btn-sm btn-c" onclick="startStoryChain('${chain.id}')">▶ Начать</button>`:''}
-        ${started&&canClaim?`<button class="btn btn-sm btn-g" onclick="claimStoryStep('${chain.id}')">✅ Сдать шаг</button>`:''}
-        <span style="font-size:10px;color:var(--gold);align-self:center">🏆 +${fmt(curStep.reward)} кр</span>
-      </div>`;
-    }
-    h+=`</div>`;
-  });
-  return h;
 }
 
 // ── Random Events HTML ──
