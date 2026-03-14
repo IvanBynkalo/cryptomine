@@ -580,12 +580,157 @@ function renderSkillsHTML(){
   return h;
 }
 
-// ── Market HTML ──
+// ── Market HTML — Equipment Market (buy/sell gear with dynamic prices) ──
+// State: current category filter for equipment market
+if(typeof window.mktCat==='undefined') window.mktCat='hull';
+
+function getEquipMarketPrice(item, isSell=false){
+  // Dynamic price based on base price ± daily fluctuation stored in G.equipPrices
+  if(!G.equipPrices) G.equipPrices={};
+  const base = getItemPriceSafe(item) || 0;
+  if(base===0) return 0; // free items have no market price
+  if(!G.equipPrices[item.id]){
+    // First time: set price at base ± 20%
+    G.equipPrices[item.id] = Math.round(base*(0.8+Math.random()*0.4));
+  }
+  const mp = G.equipPrices[item.id];
+  return isSell ? Math.round(mp*0.55) : mp; // sell = 55% of market price
+}
+
+function fluctuateEquipPrices(){
+  // Called weekly from advanceTime (same as goods prices)
+  if(!G.equipPrices) G.equipPrices={};
+  getEquipCatalog().forEach(item=>{
+    const base = getItemPriceSafe(item);
+    if(!base) return;
+    const cur = G.equipPrices[item.id] || base;
+    const change = (Math.random()-.5)*0.18;
+    G.equipPrices[item.id] = Math.max(Math.round(base*.4), Math.min(Math.round(base*2.5), Math.round(cur*(1+change))));
+  });
+}
+
+function buyEquipMarket(itemId){
+  const item = getEquipCatalog().find(e=>e.id===itemId);
+  if(!item) return;
+  if(!getEquipUnlockedSafe(item,G)){toast('🔒 '+getEquipLockReasonSafe(item,G),'bad');return;}
+  if((G.owned_equip||[]).includes(itemId)){toast('Уже в ангаре','warn');return;}
+  const price = getEquipMarketPrice(item, false);
+  if(!price){toast('Базовое снаряжение — бесплатно','warn');equipCatalogItem(itemId);return;}
+  if(G.cr<price){toast(`💸 Нужно ${fmt(price)} кр`,'bad');return;}
+  G.cr -= price;
+  if(!G.owned_equip) G.owned_equip=[];
+  G.owned_equip.push(itemId);
+  toast(`🛒 ${item.name} куплено за ${fmt(price)} кр`,'good');
+  hapticN('success');
+  renderMoreTab(); updateHUD();
+}
+
+function sellEquipMarket(itemId){
+  const item = getEquipCatalog().find(e=>e.id===itemId);
+  if(!item) return;
+  const isEquipped = Object.values(G.equip||{}).includes(itemId);
+  if(isEquipped){toast('Снимите снаряжение перед продажей','bad');return;}
+  const sell = getEquipMarketPrice(item, true);
+  if(!sell){toast('Это снаряжение нельзя продать','bad');return;}
+  G.owned_equip = (G.owned_equip||[]).filter(id=>id!==itemId);
+  G.cr += sell; G.totalCr += sell;
+  toast(`💰 ${item.name} продано за ${fmt(sell)} кр`,'good');
+  haptic('medium');
+  renderMoreTab(); updateHUD();
+}
+
 function renderMarketHTML(){
-  // Рынок — это каталог, но с логикой покупки без авто-экипировки
-  const catMap={hull:'hull',engine:'engine',weapon:'weapon',shield:'defense'};
-  catalogFilter=catMap[marketCat]||marketCat||catalogFilter||'hull';
-  return renderCatalogHTML();
+  const cats=[
+    {id:'hull',   label:'Корпуса',   icon:'🛸'},
+    {id:'weapon', label:'Оружие',    icon:'🔫'},
+    {id:'defense',label:'Защита',    icon:'🛡️'},
+    {id:'engine', label:'Двигатели', icon:'🔥'},
+    {id:'specmod',label:'Спецмодули',icon:'⚙️'},
+    {id:'support',label:'Дроны',     icon:'🤖'},
+  ];
+  const mktItems = getEquipSection(window.mktCat||'hull');
+
+  let h=`<div class="hero-panel more-head">
+    <div class="hero-top">
+      <div>
+        <div class="hero-kicker">рынок снаряжения · ${SYSTEMS.find(s=>s.id===G.sys)?.name||''}</div>
+        <div class="hero-title">Рынок техники 🏪</div>
+        <div class="hero-sub">Цены меняются каждую игровую неделю. Покупай дёшево — продавай дорого.</div>
+      </div>
+      <div class="hero-icon">💱</div>
+    </div>
+    <div class="mini-grid">
+      <div class="mini-stat"><div class="l">Кредиты</div><div class="v">${fmt(G.cr)}</div></div>
+      <div class="mini-stat"><div class="l">В ангаре</div><div class="v">${(G.owned_equip||[]).length} ед.</div></div>
+      <div class="mini-stat"><div class="l">Можно продать</div><div class="v">${(G.owned_equip||[]).filter(id=>!Object.values(G.equip||{}).includes(id)).length} ед.</div></div>
+      <div class="mini-stat"><div class="l">Категория</div><div class="v">${cats.find(c=>c.id===window.mktCat)?.label||'—'}</div></div>
+    </div>
+  </div>`;
+
+  // Category tabs
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">`;
+  cats.forEach(c=>{
+    const on=window.mktCat===c.id;
+    h+=`<button class="btn btn-sm ${on?'btn-c':''}" style="font-size:10px"
+      onclick="window.mktCat='${c.id}';renderMoreTab()">
+      ${c.icon} ${c.label}
+    </button>`;
+  });
+  h+=`</div>`;
+
+  // Items list
+  mktItems.forEach(item=>{
+    const unlocked = getEquipUnlockedSafe(item,G);
+    const lockReason = unlocked?'':getEquipLockReasonSafe(item,G);
+    const rarColor = eqRarityColor(item.rarity||'common');
+    const isOwned = (G.owned_equip||[]).includes(item.id);
+    const isEquipped = Object.values(G.equip||{}).includes(item.id);
+    const buyP = getEquipMarketPrice(item, false);
+    const sellP = getEquipMarketPrice(item, true);
+    const baseP = getItemPriceSafe(item);
+    const isFree = baseP===0;
+    const priceTrend = buyP>baseP?'▲':'▼';
+    const trendCol = buyP>baseP?'var(--red)':'var(--green)';
+
+    h+=`<div class="card" style="margin-bottom:6px;
+      border-color:${isEquipped?'var(--green)':isOwned?'var(--cyan)':rarColor}44;
+      ${isEquipped?'background:rgba(0,255,136,.04)':isOwned?'background:rgba(0,200,255,.03)':''}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:28px;filter:${unlocked?'none':'grayscale(1)'}">${item.icon||'📦'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+            <span style="font-size:12px;font-weight:700">${item.name}</span>
+            <span style="font-size:9px;color:${rarColor};text-transform:uppercase">${item.rarity||'common'}</span>
+            <span style="font-size:9px;color:var(--muted2)">T${item.tier}</span>
+            ${isEquipped?'<span style="font-size:9px;color:var(--green)">⚙️ Установлено</span>':
+              isOwned?'<span style="font-size:9px;color:var(--cyan)">📦 В ангаре</span>':''}
+          </div>
+          <div style="font-size:10px;color:var(--muted2);margin-top:1px">${item.desc}</div>
+          ${unlocked?'':`<div style="font-size:9px;color:var(--red);margin-top:2px">🔒 ${lockReason}</div>`}
+          ${isFree?'':
+            `<div style="font-size:10px;margin-top:3px">
+              <span style="color:${trendCol}">${priceTrend}</span>
+              <span style="font-family:var(--mono);color:var(--gold)"> ${fmt(buyP)} кр</span>
+              <span style="color:var(--muted2);font-size:9px"> · продать: ${fmt(sellP)} кр</span>
+            </div>`}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0">
+          ${isFree&&!isOwned?
+            `<button class="btn btn-sm btn-g" style="font-size:9px" onclick="equipCatalogItem('${item.id}')">Взять</button>`:
+            !isOwned&&unlocked?
+              `<button class="btn btn-sm btn-g" style="font-size:9px" ${G.cr>=buyP?'':'disabled'} onclick="buyEquipMarket('${item.id}')">Купить<br><small>${fmt(buyP)}</small></button>`:
+            isOwned&&!isEquipped?
+              `<button class="btn btn-sm btn-c" style="font-size:9px" onclick="equipCatalogItem('${item.id}')">Надеть</button>
+               <button class="btn btn-sm btn-r" style="font-size:9px" onclick="sellEquipMarket('${item.id}')">Продать<br><small>${fmt(sellP)}</small></button>`:
+            isEquipped?
+              `<button class="btn btn-sm" style="font-size:9px;border-color:var(--green);color:var(--green)" onclick="equipCatalogItem('${item.id}')">✅ Надет</button>`:
+            `<div style="font-size:9px;color:var(--muted2)">🔒</div>`}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  return h;
 }
 
 // ── Rangers HTML ──

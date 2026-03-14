@@ -117,6 +117,7 @@ function advanceTime(){
     fluctuatePrices(G.day%7===0);
     if(G.day%7===0) toast('📅 Новая неделя! Цены изменились','warn');
     if(G.day%7===0){ spawnDebris(); } // weekly debris spawn across all systems
+    if(G.day%7===0 && typeof fluctuateEquipPrices==='function') fluctuateEquipPrices(); // weekly equip market prices
     if(G.day>30){ G.day=1; G.month++; }
     if(G.month>12){ G.month=1; G.year++; }
     G.era=ERAS[Math.floor(((G.year-2450)*12+(G.month-1))/6)%ERAS.length];
@@ -489,6 +490,7 @@ if(!G.anomaliesActive) G.anomaliesActive=[];
 if(!G.anomaliesFound)  G.anomaliesFound=0;
 if(!G.history)         G.history=[];
 if(!G.debrisActive)    G.debrisActive=[];
+if(!G.equipPrices)     G.equipPrices={};
 function tick(){
   const now=Date.now();
   const dt=(now-lastTick)/1000;lastTick=now;
