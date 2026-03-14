@@ -320,9 +320,26 @@ function getEquipLockReasonSafe(item,state=G){
   if(item.rankRequired) reasons.push(`Ранг: ${item.rankRequired}`);
   return reasons.join(' · ');
 }
+function getManufacturerKeySafe(item){
+  return item?.manufacturer || item?.mfr || '';
+}
 function getManufacturerIconSafe(mfr){
   if(typeof MANUFACTURERS!=='undefined' && MANUFACTURERS?.[mfr]?.icon) return MANUFACTURERS[mfr].icon;
   return '⚙️';
+}
+function getManufacturerNameSafe(item){
+  const key=getManufacturerKeySafe(item);
+  if(typeof MANUFACTURERS!=='undefined' && MANUFACTURERS?.[key]?.name) return MANUFACTURERS[key].name;
+  return key || 'Без марки';
+}
+function getItemPriceSafe(item){
+  return Number(item?.price ?? item?.cost ?? 0) || 0;
+}
+function getEventListSafe(){
+  return (typeof RANDOM_EVENTS!=='undefined' && Array.isArray(RANDOM_EVENTS)) ? RANDOM_EVENTS : [];
+}
+function getAnomalyListSafe(){
+  return (typeof ANOMALIES!=='undefined' && Array.isArray(ANOMALIES)) ? ANOMALIES : [];
 }
 
 function setMoreTab(t,btn){
@@ -538,15 +555,10 @@ function renderSkillsHTML(){
 
 // ── Market HTML ──
 function renderMarketHTML(){
-  // Полный каталог техники — заменяет старый рынок
+  // Рынок — это каталог, но с логикой покупки без авто-экипировки
   const catMap={hull:'hull',engine:'engine',weapon:'weapon',shield:'defense'};
-  catalogFilter=catMap[marketCat]||marketCat;
-  if(typeof renderCatalogHTML==='function') return renderCatalogHTML();
-  // Fallback если каталог не загружен
-  return `<div class="card" style="text-align:center;padding:20px;color:var(--muted2)">
-    ⚠️ Каталог загружается... Обновите страницу или перейдите в таб 📋 Каталог
-    <br><br><button class="btn btn-sm btn-c" onclick="setMoreTab('catalog',null)">📋 Открыть Каталог</button>
-  </div>`;
+  catalogFilter=catMap[marketCat]||marketCat||catalogFilter||'hull';
+  return renderCatalogHTML();
 }
 
 // ── Rangers HTML ──
@@ -815,7 +827,7 @@ function renderEventsHTML(){
     h+=`<div class="card" style="color:var(--muted2);font-size:12px;text-align:center;padding:20px">Нет активных событий</div>`;
   }
   h+=`<div class="sh">📋 Все события</div>`;
-  RANDOM_EVENTS.forEach(e=>{
+  getEventListSafe().forEach(e=>{
     const wasActive=G.eventHistory?.some(h=>h.id===e.id);
     h+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:4px;
       background:var(--card);border:1px solid var(--b1);border-radius:8px;opacity:${wasActive?1:.6}">
@@ -856,7 +868,7 @@ function renderEventsHTML(){
       h+=`<div style="font-size:11px;color:var(--muted2);padding:4px 8px">${a.icon} ${a.name} — ${rStr}</div>`;
     });
   }
-  ANOMALIES.forEach(a=>{
+  getAnomalyListSafe().forEach(a=>{
     h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:3px;
       background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.15);border-radius:8px">
       <div style="font-size:18px">${a.icon}</div>
@@ -1032,7 +1044,7 @@ function renderHangarHTML(){
       <div style="font-size:42px">${hull?.icon||'🚀'}</div>
       <div>
         <div style="font-size:14px;font-weight:700">${hull?.name}</div>
-        <div style="font-size:10px;color:${eqRarityColor(hull?.rarity||'common')}">${hull?.rarity?.toUpperCase()||'COMMON'} · T${hull?.tier||1} · ${hull?.mfr||'—'}</div>
+        <div style="font-size:10px;color:${eqRarityColor(hull?.rarity||'common')}">${(hull?.rarity||'common').toUpperCase()} · T${hull?.tier||1} · ${getManufacturerNameSafe(hull||{})}</div>
         <div style="font-size:10px;color:var(--muted2)">${hull?.role||''} · ${hull?.desc||''}</div>
       </div>
     </div>
@@ -1208,11 +1220,11 @@ function renderCatalogHTML(){
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:12px;font-weight:700">${item.name}</span>
-            <span style="font-size:9px;color:${rarColor};text-transform:uppercase">${item.rarity}</span>
+            <span style="font-size:9px;color:${rarColor};text-transform:uppercase">${(item.rarity||'common')}</span>
             <span style="font-size:9px;color:var(--muted2)">T${item.tier}</span>
             ${isEquipped?'<span style="font-size:9px;color:var(--green)">✅ Установлено</span>':''}
           </div>
-          <div style="font-size:9px;color:var(--muted2)">${getManufacturerIconSafe(item.mfr)} ${item.mfr||''} · ${item.role||item.subcat}</div>
+          <div style="font-size:9px;color:var(--muted2)">${getManufacturerIconSafe(getManufacturerKeySafe(item))} ${getManufacturerNameSafe(item)} · ${item.role||item.subcat||'—'}</div>
           <div style="font-size:10px;color:var(--muted2);margin-top:2px">${item.desc}</div>
           ${unlocked?'':'<div style="font-size:9px;color:var(--red);margin-top:2px">🔒 '+lockReason+'</div>'}
           <div style="font-size:9px;color:var(--muted2);margin-top:2px">
@@ -1221,8 +1233,8 @@ function renderCatalogHTML(){
           ${compareBlock}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-          <div style="font-family:var(--mono);font-size:12px;color:var(--gold)">${item.price?fmt(item.price)+' кр':'Старт'}</div>
-          ${unlocked&&!isEquipped?`<button class="btn btn-sm btn-c" style="font-size:9px" onclick="equipCatalogItem('${item.id}')">Надеть</button>`:''}
+          <div style="font-family:var(--mono);font-size:12px;color:var(--gold)">${getItemPriceSafe(item)?fmt(getItemPriceSafe(item))+' кр':'Старт'}</div>
+          ${unlocked&&!isEquipped?(isOwned?`<button class="btn btn-sm btn-c" style="font-size:9px" onclick="equipCatalogItem('${item.id}')">Надеть</button>`:`<button class="btn btn-sm btn-g" style="font-size:9px" onclick="buyCatalogItem('${item.id}')">Купить</button>`):''}
           ${!isEquipped?`<button class="btn btn-sm" style="font-size:9px;border-color:var(--b2);color:var(--cyan)"
             onclick="catalogCompareId='${item.id}';renderMoreTab()">Сравнить</button>`:''}
         </div>
@@ -1232,16 +1244,29 @@ function renderCatalogHTML(){
   return h;
 }
 
+function buyCatalogItem(itemId){
+  const item=getEquipCatalog().find(e=>e.id===itemId);
+  if(!item) return;
+  if(!getEquipUnlockedSafe(item,G)){toast('🔒 Заблокировано: '+getEquipLockReasonSafe(item,G),'bad');return;}
+  const price=getItemPriceSafe(item);
+  if((G.owned_equip||[]).includes(itemId)){toast('Уже куплено','good');return;}
+  if(price>0){
+    if(G.cr<price){toast(`💸 Нужно ${fmt(price)} кр`,'bad');return;}
+    G.cr-=price;
+  }
+  if(!G.owned_equip) G.owned_equip=[];
+  G.owned_equip.push(itemId);
+  toast(`🛒 ${item.name} куплено`,'good');
+  hapticN('success');
+  renderMoreTab();updateHUD();
+}
 function equipCatalogItem(itemId){
   const item=getEquipCatalog().find(e=>e.id===itemId);
   if(!item) return;
   if(!getEquipUnlockedSafe(item,G)){toast('🔒 Заблокировано: '+getEquipLockReasonSafe(item,G),'bad');return;}
-  if(item.price>0&&!G.owned_equip?.includes(itemId)){
-    if(G.cr<item.price){toast(`💸 Нужно ${fmt(item.price)} кр`,'bad');return;}
-    G.cr-=item.price;
-    if(!G.owned_equip) G.owned_equip=[];
-    G.owned_equip.push(itemId);
-  }
+  const price=getItemPriceSafe(item);
+  const owned=(G.owned_equip||[]).includes(itemId) || price===0;
+  if(!owned){toast('🛒 Сначала купите предмет','bad');return;}
   // Determine slot
   const slotMap={hull:'hull',weapon:'weapon',defense:'defense',engine:'engine',specmod:'specmod1',support:'support'};
   const slot=slotMap[item.cat];
