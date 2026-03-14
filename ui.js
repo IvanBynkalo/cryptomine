@@ -1111,11 +1111,19 @@ function renderHangarHTML(){
 // ════════════════════════════════════
 //  КАТАЛОГ — весь ассортимент с фильтрами
 // ════════════════════════════════════
-let catalogFilter='hull';
-let catalogTier=0; // 0=all
-let catalogAvailOnly=false;
-let catalogSearch='';
-let catalogCompareId=null;
+// Делаем переменные глобальными через window для доступа из onclick
+if(typeof window.catalogFilter==='undefined') window.catalogFilter='hull';
+if(typeof window.catalogTier==='undefined') window.catalogTier=0;
+if(typeof window.catalogAvailOnly==='undefined') window.catalogAvailOnly=false;
+if(typeof window.catalogSearch==='undefined') window.catalogSearch='';
+if(typeof window.catalogCompareId==='undefined') window.catalogCompareId=null;
+
+// Локальные ссылки для удобства
+let catalogFilter = window.catalogFilter;
+let catalogTier = window.catalogTier;
+let catalogAvailOnly = window.catalogAvailOnly;
+let catalogSearch = window.catalogSearch;
+let catalogCompareId = window.catalogCompareId;
 
 
 // ── Перевод названий характеристик ──
@@ -1163,8 +1171,8 @@ function renderCatalogHTML(){
   // Category tabs
   h+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">`;
   cats.forEach(c=>{
-    const on=catalogFilter===c.id;
-    h+=`<button class="btn btn-sm ${on?'btn-c':''}" style="font-size:10px" onclick="catalogFilter='${c.id}';renderMoreTab()">
+    const on=window.catalogFilter===c.id;
+    h+=`<button class="btn btn-sm ${on?'btn-c':''}" style="font-size:10px" onclick="window.catalogFilter='${c.id}';renderMoreTab()">
       ${c.icon} ${c.label} <span style="opacity:.6">${c.count}</span>
     </button>`;
   });
@@ -1173,17 +1181,17 @@ function renderCatalogHTML(){
   // Tier filter with proper names
   const tierNames=['Все','Лёгкие','Средние','Тяжёлые','Военные','Экспер.','Легенд.'];
   h+=`<div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;overflow-x:auto">
-    ${[0,1,2,3,4,5,6].map(t=>`<button class="btn btn-sm ${catalogTier===t?'btn-c':''}" style="font-size:10px;min-width:60px;white-space:nowrap"
-      onclick="catalogTier=${t};renderMoreTab()">${tierNames[t]||'T'+t}</button>`).join('')}
-    <button class="btn btn-sm ${catalogAvailOnly?'btn-g':''}" style="font-size:10px;white-space:nowrap"
-      onclick="catalogAvailOnly=!catalogAvailOnly;renderMoreTab()">✅ Доступные</button>
+    ${[0,1,2,3,4,5,6].map(t=>`<button class="btn btn-sm ${window.catalogTier===t?'btn-c':''}" style="font-size:10px;min-width:60px;white-space:nowrap"
+      onclick="window.catalogTier=${t};renderMoreTab()">${tierNames[t]||'T'+t}</button>`).join('')}
+    <button class="btn btn-sm ${window.catalogAvailOnly?'btn-g':''}" style="font-size:10px;white-space:nowrap"
+      onclick="window.catalogAvailOnly=!window.catalogAvailOnly;renderMoreTab()">✅ Доступные</button>
   </div>`;
 
   // Items list
-  let items=getEquipSection(catalogFilter);
-  if(catalogTier>0) items=items.filter(e=>e.tier===catalogTier);
-  if(catalogAvailOnly) items=items.filter(e=>getEquipUnlockedSafe(e,G));
-  if(catalogSearch) items=items.filter(e=>e.name.toLowerCase().includes(catalogSearch));
+  let items=getEquipSection(window.catalogFilter);
+  if(window.catalogTier>0) items=items.filter(e=>e.tier===window.catalogTier);
+  if(window.catalogAvailOnly) items=items.filter(e=>getEquipUnlockedSafe(e,G));
+  if(window.catalogSearch) items=items.filter(e=>e.name.toLowerCase().includes(window.catalogSearch));
 
   const installed=G.equip;
   h+=`<div style="font-size:10px;color:var(--muted2);margin-bottom:6px">${items.length} предметов</div>`;
@@ -1197,8 +1205,8 @@ function renderCatalogHTML(){
 
     // Comparison delta if comparing
     let compareBlock='';
-    if(catalogCompareId&&catalogCompareId!==item.id){
-      const base=getEquipCatalog().find(e=>e.id===catalogCompareId);
+    if(window.catalogCompareId&&window.catalogCompareId!==item.id){
+      const base=getEquipCatalog().find(e=>e.id===window.catalogCompareId);
       if(base&&base.cat===item.cat){
         const dAtk=(item.stats?.atk||0)-(base.stats?.atk||0);
         const dDef=(item.stats?.def||0)-(base.stats?.def||0);
@@ -1237,7 +1245,7 @@ function renderCatalogHTML(){
           <div style="font-family:var(--mono);font-size:12px;color:var(--gold)">${getItemPriceSafe(item)?fmt(getItemPriceSafe(item))+' кр':'Старт'}</div>
           ${unlocked&&!isEquipped?(isOwned?`<button class="btn btn-sm btn-c" style="font-size:9px" onclick="equipCatalogItem('${item.id}')">Надеть</button>`:`<button class="btn btn-sm btn-g" style="font-size:9px" onclick="buyCatalogItem('${item.id}')">Купить</button>`):''}
           ${!isEquipped?`<button class="btn btn-sm" style="font-size:9px;border-color:var(--b2);color:var(--cyan)"
-            onclick="catalogCompareId='${item.id}';renderMoreTab()">Сравнить</button>`:''}
+            onclick="window.catalogCompareId='${item.id}';renderMoreTab()">Сравнить</button>`:''}
         </div>
       </div>
     </div>`;
