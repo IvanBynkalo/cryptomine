@@ -4,6 +4,30 @@
 
 ---
 
+## 🔗 Быстрые ссылки (raw GitHub — читаются напрямую)
+
+| Файл | Ссылка |
+|------|--------|
+| ARCHITECTURE.md | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/ARCHITECTURE.md |
+| index.html | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/index.html |
+| globals.js | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/globals.js |
+| data.js | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/data.js |
+| state.js | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/state.js |
+| equipment_catalog.js | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/equipment_catalog.js |
+| market_catalog.js | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/market_catalog.js |
+| engine.js | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/engine.js |
+| combat.js | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/combat.js |
+| galaxy.js | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/galaxy.js |
+| online.js | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/online.js |
+| ui.js | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/ui.js |
+| style.css | https://raw.githubusercontent.com/IvanBynkalo/cryptomine/main/style.css |
+
+**Vercel (продакшен):** https://project-oa3ep.vercel.app
+
+> **Как начать сессию с Claude:** пришли одну ссылку на `ARCHITECTURE.md` выше + опиши задачу. Claude сам запросит нужные файлы через raw-ссылки из этой таблицы.
+
+---
+
 ## 📁 Файлы проекта и порядок загрузки
 
 Порядок `<script>` в `index.html` **критичен** — каждый файл зависит от предыдущих:
