@@ -172,6 +172,78 @@ function getEconomySnapshot(){
   };
 }
 
+function getUrgentWarnings(){
+  const snap=getEconomySnapshot();
+  const warnings=[];
+  if((snap.debt||0)>0 && (snap.dueIn||0)<=3){
+    warnings.push({level:'high', icon:'🏦', text:`Платёж по долгу через ${snap.dueIn} дн.`, action:{screen:'more', tab:'diagnostics'}});
+  }
+  if(G.alienInvasion){
+    const sys=SYSTEMS.find(s=>s.id===G.alienInvasion.sysId);
+    warnings.push({level:'high', icon:'👾', text:`Активное вторжение: ${sys?.name||G.alienInvasion.sysId}`, action:{screen:'more', tab:'events'}});
+  }
+  if((calcCargoUsed?.()||0) >= Math.max(1,(calcCargoMax?.()||0)-2)){
+    warnings.push({level:'medium', icon:'📦', text:'Трюм почти заполнен', action:{screen:'trade'}});
+  }
+  if((G.honor||0)<0){
+    warnings.push({level:'medium', icon:'⚖️', text:'Честь ниже нуля режет цены и доверие', action:{screen:'more', tab:'rangers'}});
+  }
+  if((G.influence||0)<0){
+    warnings.push({level:'medium', icon:'📉', text:'Отрицательное влияние ухудшает контракты', action:{screen:'more', tab:'rangers'}});
+  }
+  if((G.licenses && Object.keys(G.licenses).length===0) && (G.lvl||1)>=3){
+    warnings.push({level:'low', icon:'📜', text:'Пора взять первую лицензию для роста прибыли', action:{screen:'more', tab:'rangers'}});
+  }
+  return warnings.slice(0,4);
+}
+
+function getRecommendedNextStep(){
+  const debt=Math.ceil(G.debt||0);
+  if(G.alienInvasion){
+    return {icon:'🛡️', title:'Отразить вторжение', desc:'Сначала стабилизируйте сектор — вторжения бьют по миру и атмосфере игры.', screen:'more', tab:'events'};
+  }
+  if(debt>0 && Math.max(0,(G.debtDueDay||0)-getAbsDay())<=3){
+    return {icon:'🏦', title:'Закрыть вопрос с долгом', desc:'Скоро платёж. Погасите долг или подготовьте прибыльную сделку.', screen:'more', tab:'diagnostics'};
+  }
+  if((calcCargoUsed?.()||0) >= Math.max(1,(calcCargoMax?.()||0)-2)){
+    return {icon:'📦', title:'Освободить трюм', desc:'Продайте груз или найдите лучшую планету сбыта, чтобы не тормозить развитие.', screen:'trade'};
+  }
+  if((G.licenses && Object.keys(G.licenses).length===0) && (G.lvl||1)>=3){
+    return {icon:'📜', title:'Купить первую лицензию', desc:'Лицензия открывает более выгодные товары и повышает глубину рынка.', screen:'more', tab:'rangers'};
+  }
+  if((G.base?.level||0)===0 && (G.cr||0)>=Math.min(...Object.values(BASE_UPGRADES||{}).map(x=>x.cost||999999))){
+    return {icon:'🏗️', title:'Начать строить базу', desc:'База даст пассивный доход, науку и устойчивость поздней игры.', screen:'more', tab:'land'};
+  }
+  if((G.tradeStats?.marketDeals||0)<3){
+    return {icon:'💱', title:'Сделать ещё пару сделок', desc:'Первый час должен быстро показать пользу рынка и маршрутов.', screen:'trade'};
+  }
+  return {icon:'🌌', title:'Искать новый маршрут', desc:'Проверьте рынок, аналитику и соседние системы в поисках лучшей прибыли.', screen:'trade'};
+}
+
+function getBestDealToday(){
+  const fromSysId=G.sys;
+  const pIdx=typeof getCurrentPlanetIndex==='function' ? getCurrentPlanetIndex(fromSysId) : 0;
+  let best=null;
+  for(const item of getAllMarketGoods()){
+    const opp=typeof getBestTradeOpportunity==='function' ? getBestTradeOpportunity(item.id, fromSysId, pIdx, 'buy') : null;
+    if(!opp) continue;
+    if(!best || (opp.net||-999999) > (best.net||-999999)) best={item, ...opp};
+  }
+  return best;
+}
+
+function getPlayerMilestones(){
+  const milestones=[];
+  if((G.tradeStats?.marketDeals||0)>=1) milestones.push({icon:'💱', text:'Первая сделка совершена'});
+  if((G.tradeStats?.marketDeals||0)>=10) milestones.push({icon:'📈', text:'Стабильный торговец: 10+ сделок'});
+  if((G.killCount||0)>=10) milestones.push({icon:'⚔️', text:'Боевой опыт: 10 побед'});
+  if((G.base?.level||0)>=1) milestones.push({icon:'🏗️', text:'Основана база рейнджера'});
+  if(Object.keys(G.licenses||{}).length>=1) milestones.push({icon:'📜', text:'Получена первая лицензия'});
+  if((G.lvl||1)>=10) milestones.push({icon:'⭐', text:'Рубеж: 10 уровень'});
+  if((G.cr||0)>=100000 || (typeof calcNetWorth==='function' && calcNetWorth()>=100000)) milestones.push({icon:'👑', text:'Капитал перевалил за 100 000 кр'});
+  return milestones;
+}
+
 function getTempBuffMult(kind){
   const nowDay=getAbsDay();
   if(kind==='buy' && (G.tempBuffs?.marketBoostUntil||0) >= nowDay) return 0.94;

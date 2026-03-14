@@ -215,6 +215,7 @@ function renderTrade(){
   const selectedHist=(G.planetPriceHistory?.[sys.id]?.[pIdx]?.[selectedId]) || G.priceHistory[sys.id]?.[selectedId] || [];
   const selectedTrend=tradeTrendMeta(selectedHist);
   const tradeRumors = typeof getMarketRumors==='function' ? getMarketRumors(sys.id) : [];
+  const urgent=(typeof getUrgentWarnings==='function') ? getUrgentWarnings() : [];
   let h=`<div class="hero-panel trade-head">
     <div class="hero-top">
       <div>
@@ -235,6 +236,9 @@ function renderTrade(){
       <div class="mini-stat"><div class="l">Лицензии</div><div class="v">${Object.keys(G.licenses||{}).length}</div></div>
     </div>
   </div>`;
+  if(urgent.length){
+    h+=`<div class="card" style="margin-top:10px"><div style="font-size:10px;color:var(--muted2);letter-spacing:1.6px;text-transform:uppercase;margin-bottom:8px">Что важно прямо сейчас</div><div style="display:flex;gap:6px;flex-wrap:wrap">${urgent.map(w=>uiStatusChip(`${w.icon||'•'} ${w.text}`, w.level==='high'?'danger':w.level==='medium'?'warning':'info')).join('')}</div></div>`;
+  }
   h+=`<div class="section-shell"><div class="bar-row"><div class="bar-hd"><span>📦 Трюм</span><span>${used}/${G.cargoMax}</span></div>
   <div class="bar-tr"><div class="bar-f" style="width:${Math.min(100,(used/G.cargoMax*100)||0)}%;background:linear-gradient(90deg,var(--amber),var(--gold))"></div></div></div></div>`;
 
@@ -262,8 +266,15 @@ function renderTrade(){
       <div style="font-size:11px;color:var(--muted2);margin-top:10px">📍 Лучший маршрут для покупки сейчас: ${bestSaleLine(bestBuyOpp)}</div>
       ${bestCargoOpp?`<div style="font-size:11px;color:var(--muted2);margin-top:4px">📦 Для вашего груза: ${bestSaleLine(bestCargoOpp)}</div>`:''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        <span class="tc-btn on">Тренд: ${selectedTrend.label}</span>
-        <span class="tc-btn">История: ${selectedHist.slice(-5).map(v=>fmt(v)).join(' · ') || '—'}</span>
+        ${uiStatusChip(`Тренд: ${selectedTrend.label}`, selectedTrend.cls==='up'?'warning':selectedTrend.cls==='dn'?'positive':'neutral')}
+        ${uiStatusChip(`Налог: ${profile.tax||0}%`, (profile.tax||0)>=8?'warning':'info')}
+        ${uiStatusChip(`Риск: ${profile.risk||0}/5`, (profile.risk||0)>=4?'danger':(profile.risk||0)>=2?'warning':'info')}
+        ${selectedItem?.licenseRequired && !(typeof hasLicense==='function' && hasLicense(selectedItem.licenseRequired)) ? uiStatusChip(`Нужна лицензия`, 'warning') : ''}
+      </div>
+      <div style="font-size:10px;color:var(--muted2);margin-top:8px">История: ${selectedHist.slice(-5).map(v=>fmt(v)).join(' · ') || '—'}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn btn-sm btn-c" onclick="openModuleShortcut('trade')">Оставить на радаре</button>
+        ${bestBuyOpp?`<button class="btn btn-sm btn-g" onclick="openModuleShortcut('galaxy')">Открыть маршрут</button>`:''}
       </div>
     </div>`;
   }
@@ -366,6 +377,7 @@ function renderTrade(){
     const demandColor=demandState==='высокий спрос'?'var(--red)':demandState==='переизбыток'?'var(--green)':'var(--muted2)';
     const locked=!!item.licenseRequired && typeof hasLicense==='function' && !hasLicense(item.licenseRequired);
     const lockReason=locked && typeof getLicenseReason==='function' ? getLicenseReason(item) : '';
+      const rowRisk=((opp?.risk||0)+(SYSTEMS.find(s=>s.id===opp?.toSysId)?.pc||0))||0;
     h+=`<div class="good-row ${selectedId===gId?'glow-c':''}" onclick="selectTradeGood('${gId}')"><div class="gi">${marketIcon(gId)}</div>
       <div class="ginfo">
         <div class="gname">${marketName(gId)}</div>
@@ -374,6 +386,11 @@ function renderTrade(){
         <div style="font-size:9px;color:${demandColor}">${demandState} · D ${Number(st?.demand||1).toFixed(2)} / S ${Number(st?.supply||1).toFixed(2)}</div>
         ${locked?`<div style="font-size:9px;color:var(--gold)">🔒 ${lockReason}</div>`:''}
         ${opp?`<div style="font-size:9px;color:${(opp.net||0)>=0?'var(--green)':'var(--red)'}">Маршрут: ${bestSaleLine(opp)}</div>`:''}
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
+          ${opp && (opp.net||0)>0 ? uiStatusChip(`выгодно`, (opp.net||0)>=Math.max(80, marketBase(gId)*0.35)?'positive':'info') : ''}
+          ${rowRisk>=3 ? uiStatusChip('опасный сектор','danger') : rowRisk>1.5 ? uiStatusChip('средний риск','warning') : ''}
+          ${locked ? uiStatusChip('нужна лицензия','warning') : ''}
+        </div>
         ${owned?`<div style="font-size:9px;color:var(--muted2)">В трюме: ${owned}</div>`:''}
       </div>
       <div class="gbtns">
@@ -452,6 +469,29 @@ function renderQuests(){
 let moreTab='combat';
 let activeTechCat='weapons';
 let marketCat='hull';
+let chronicleFilter='all';
+
+function uiStatusChip(text, tone='neutral'){
+  const map={
+    positive:'background:rgba(0,255,136,.1);border-color:rgba(0,255,136,.35);color:var(--green)',
+    danger:'background:rgba(255,58,58,.1);border-color:rgba(255,58,58,.35);color:var(--red)',
+    warning:'background:rgba(255,215,0,.1);border-color:rgba(255,215,0,.35);color:var(--gold)',
+    info:'background:rgba(0,200,255,.1);border-color:rgba(0,200,255,.35);color:var(--cyan)',
+    neutral:'background:rgba(255,255,255,.04);border-color:var(--b1);color:var(--muted2)'
+  };
+  const style=map[tone]||map.neutral;
+  return `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid transparent;border-radius:999px;font-size:9px;line-height:1.2;letter-spacing:.3px;${style}">${text}</span>`;
+}
+
+function openModuleShortcut(screen, tab=null){
+  const navBtn=document.querySelector(screen==='more' ? '.nb:last-child' : screen==='trade' ? '.nb:nth-child(3)' : screen==='galaxy' ? '.nb:nth-child(2)' : '.nb:first-child');
+  goTo(screen, navBtn||null);
+  if(screen==='more' && tab){
+    setTimeout(()=>setMoreTab(tab, null), 0);
+  }
+}
+
+function setChronicleFilter(kind){ chronicleFilter=kind; renderMoreTab(); }
 
 
 function setMoreTab(t,btn){
@@ -495,13 +535,20 @@ function renderMoreTab(){
 
 function renderChronicleHTML(){
   const entries=(G.historyLog||[]);
+  const filtered=chronicleFilter==='all' ? entries : entries.filter(e=>e.kind===chronicleFilter);
   let h=`<div class="card" style="margin-bottom:10px"><div style="font-size:13px;font-weight:700">Журнал рейнджера</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Хроника ключевых действий: сделки, перелёты, лицензии, долги, база и сюжет. Это помогает тестировать проект и понимать картину прогресса.</div></div>`;
   h+=`<div class="g2" style="margin-bottom:8px"><div class="mstat"><div class="msv" style="color:var(--cyan)">${entries.length}</div><div class="msl">записей</div></div><div class="mstat"><div class="msv" style="color:var(--gold)">${fmt(G.tradeStats?.profit||0)}</div><div class="msl">рыночная прибыль</div></div></div>`;
+  const filters=[['all','Все'],['trade','Рынок'],['travel','Перелёты'],['license','Лицензии'],['debt','Долги'],['base','База'],['story','Сюжет']];
+  h+=`<div style="display:flex;gap:6px;overflow:auto;margin-bottom:10px">${filters.map(([id,label])=>`<button class="tc-btn ${chronicleFilter===id?'on':''}" onclick="setChronicleFilter('${id}')">${label}</button>`).join('')}</div>`;
   if(!entries.length){
     h+=`<div class="card" style="text-align:center;color:var(--muted2);padding:24px">История пока пуста. Совершите сделку, перелёт или покупку лицензии — и запись появится здесь.</div>`;
     return h;
   }
-  entries.forEach(e=>{
+  if(entries.length && !filtered.length){
+    h+=`<div class="card" style="text-align:center;color:var(--muted2);padding:20px">Для выбранного фильтра записей пока нет.</div>`;
+    return h;
+  }
+  filtered.forEach(e=>{
     const time=`${String(e.day||1).padStart(2,'0')}.${String(e.month||1).padStart(2,'0')}.${e.year||2450} · ${String(e.hour||0).padStart(2,'0')}:${String(e.minute||0).padStart(2,'0')}`;
     const loc=[SYSTEMS.find(s=>s.id===e.system)?.name, GALAXIES.find(g=>g.id===e.galaxy)?.name].filter(Boolean).join(' · ');
     h+=`<div class="card" style="margin-bottom:6px"><div style="display:flex;gap:10px;align-items:flex-start"><div style="font-size:24px;line-height:1">${e.icon||'•'}</div><div style="flex:1"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="font-size:12px;font-weight:700">${e.title||'Событие'}</div><div style="font-size:9px;color:var(--muted2);text-align:right">${time}</div></div><div style="font-size:10px;color:var(--muted2);margin-top:4px">${e.details||'—'}</div><div style="font-size:9px;color:var(--cyan);margin-top:6px">${loc||'Локация не указана'}</div></div></div></div>`;
@@ -511,6 +558,14 @@ function renderChronicleHTML(){
 
 function renderGuideHTML(){
   G.guideSeen=true;
+  const next=(typeof getRecommendedNextStep==='function') ? getRecommendedNextStep() : null;
+  const milestones=(typeof getPlayerMilestones==='function') ? getPlayerMilestones() : [];
+  const firstHour=[
+    {label:'Сделать первую сделку', done:(G.tradeStats?.marketDeals||0)>=1},
+    {label:'Купить технику или лицензии', done:(G.owned_equip||[]).length>0 || Object.keys(G.licenses||{}).length>0},
+    {label:'Перелететь в другую систему', done:(entries=>entries.some(e=>e.kind==='travel'))(G.historyLog||[])},
+    {label:'Начать развивать базу', done:(G.base?.level||0)>=1},
+  ];
   const sections=[
     ['⛏️ Майнинг','База ранней игры: энергия, кредиты, помощники и базовые улучшения.'],
     ['🌌 Галактика','Выбор маршрутов между системами и планетами, источник риска и доступа к новым рынкам.'],
@@ -521,7 +576,14 @@ function renderGuideHTML(){
     ['🩺 Диагностика','Сводка по балансу, долгам, прибыли, рискам и целостности сборки. Используйте перед релизом и после апдейтов.']
   ];
   let h=`<div class="card" style="margin-bottom:10px"><div style="font-size:13px;font-weight:700">Гид по проекту</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Живая памятка по связям модулей. Этот экран нужно обновлять при полировке и новых этапах.</div></div>`;
+  if(next){
+    h+=`<div class="card glow-c" style="margin-bottom:10px"><div style="font-size:10px;color:var(--muted2);letter-spacing:1.6px;text-transform:uppercase">Следующий лучший шаг</div><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-top:6px"><div><div style="font-size:13px;font-weight:700">${next.icon||'🧭'} ${next.title}</div><div style="font-size:10px;color:var(--muted2);margin-top:4px">${next.desc||''}</div></div><button class="btn btn-sm btn-c" onclick="openModuleShortcut('${next.screen||'trade'}'${next.tab?`, '${next.tab}'`:''})">Открыть</button></div></div>`;
+  }
+  h+=`<div class="card" style="margin-bottom:10px"><div style="font-size:12px;font-weight:700">Первый час — быстрый маршрут</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${firstHour.map(s=>uiStatusChip(`${s.done?'✅':'•'} ${s.label}`, s.done?'positive':'neutral')).join('')}</div></div>`;
   sections.forEach(([title,desc])=>{ h+=`<div class="card" style="margin-bottom:6px"><div style="font-size:12px;font-weight:700">${title}</div><div style="font-size:10px;color:var(--muted2);margin-top:4px">${desc}</div></div>`; });
+  if(milestones.length){
+    h+=`<div class="card" style="margin-top:10px"><div style="font-size:12px;font-weight:700">Ключевые milestones игрока</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${milestones.map(m=>uiStatusChip(`${m.icon} ${m.text}`,'info')).join('')}</div></div>`;
+  }
   h+=`<div class="card" style="margin-top:10px"><div style="font-size:12px;font-weight:700">Быстрый чек после обновлений</div><div style="font-size:10px;color:var(--muted2);margin-top:6px;line-height:1.6">1. Купить и продать товар. 2. Перелететь в другую систему. 3. Купить лицензию. 4. Улучшить базу или землю. 5. Активировать способность. 6. Проверить новые записи в журнале. 7. Открыть Диагностику и убедиться, что нет красных рисков.</div></div>`;
   return h;
 }
@@ -529,7 +591,23 @@ function renderGuideHTML(){
 function renderDiagnosticsHTML(){
   G.diagnosticsSeen=true;
   const snap=(typeof getEconomySnapshot==='function') ? getEconomySnapshot() : {riskFlags:[]};
+  const warnings=(typeof getUrgentWarnings==='function') ? getUrgentWarnings() : [];
+  const next=(typeof getRecommendedNextStep==='function') ? getRecommendedNextStep() : null;
+  const bestDeal=(typeof getBestDealToday==='function') ? getBestDealToday() : null;
   let h=`<div class="card" style="margin-bottom:10px"><div style="font-size:13px;font-weight:700">Диагностика сборки</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Предрелизная сводка проекта: экономика, долги, вторжения, честь, влияние и ключевые риски. Этот экран помогает не потерять баланс после новых этапов.</div></div>`;
+  if(warnings.length){
+    h+=`<div class="card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:700">Срочные сигналы</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${warnings.map(w=>uiStatusChip(`${w.icon||'•'} ${w.text}`, w.level==='high'?'danger':w.level==='medium'?'warning':'info')).join('')}</div></div>`;
+  }
+  if(next || bestDeal){
+    h+=`<div class="g2" style="margin-bottom:8px">`;
+    if(next){
+      h+=`<div class="card glow-c"><div style="font-size:10px;color:var(--muted2);letter-spacing:1.4px;text-transform:uppercase">Рекомендация</div><div style="font-size:12px;font-weight:700;margin-top:6px">${next.icon||'🧭'} ${next.title}</div><div style="font-size:10px;color:var(--muted2);margin-top:4px">${next.desc||''}</div><button class="btn btn-sm btn-c" style="margin-top:10px" onclick="openModuleShortcut('${next.screen||'trade'}'${next.tab?`, '${next.tab}'`:''})">Перейти</button></div>`;
+    }
+    if(bestDeal){
+      h+=`<div class="card glow-g"><div style="font-size:10px;color:var(--muted2);letter-spacing:1.4px;text-transform:uppercase">Сделка дня</div><div style="font-size:12px;font-weight:700;margin-top:6px">${bestDeal.item?.icon||'💱'} ${bestDeal.item?.name||bestDeal.gId}</div><div style="font-size:10px;color:var(--muted2);margin-top:4px">${bestDeal.fromPlanetLabel||currentTradePlanetLabel(SYSTEMS.find(s=>s.id===G.sys))} → ${bestDeal.toSysName||'—'} · ${bestDeal.toPlanetLabel||'—'}</div><div style="font-size:10px;color:var(--green);margin-top:6px">Чистая прибыль: ${fmt(bestDeal.net||0)} / ед.</div><button class="btn btn-sm btn-g" style="margin-top:10px" onclick="openModuleShortcut('trade')">Открыть рынок</button></div>`;
+    }
+    h+=`</div>`;
+  }
   h+=`<div class="g2" style="margin-bottom:8px">
     <div class="mstat"><div class="msv" style="color:var(--gold)">${fmt(snap.netWorth||0)}</div><div class="msl">капитал</div></div>
     <div class="mstat"><div class="msv" style="color:var(--cyan)">${fmt(snap.cargoValue||0)}</div><div class="msl">стоимость груза</div></div>
@@ -551,7 +629,14 @@ function renderDiagnosticsHTML(){
       h+=`<div style="font-size:10px;color:var(--red);margin-top:6px">• ${flag}</div>`;
     });
   }
-  h+=`<div style="font-size:10px;color:var(--muted2);margin-top:10px;line-height:1.6">Рекомендуемый чек перед релизом: рынок → перелёт → контракт → лицензия → способность → вторжение → база → хроника.</div></div>`;
+  h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+    <button class="btn btn-sm btn-c" onclick="openModuleShortcut('trade')">🛸 Рынок</button>
+    <button class="btn btn-sm btn-c" onclick="openModuleShortcut('more','events')">👾 События</button>
+    <button class="btn btn-sm btn-c" onclick="openModuleShortcut('more','rangers')">🧭 Карьера</button>
+    <button class="btn btn-sm btn-c" onclick="openModuleShortcut('more','land')">🏗️ База</button>
+    <button class="btn btn-sm btn-c" onclick="openModuleShortcut('more','chronicle')">📚 Хроника</button>
+  </div>
+  <div style="font-size:10px;color:var(--muted2);margin-top:10px;line-height:1.6">Рекомендуемый чек перед релизом: рынок → перелёт → контракт → лицензия → способность → вторжение → база → хроника.</div></div>`;
   return h;
 }
 
