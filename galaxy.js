@@ -24,10 +24,17 @@ function setPlanetIndex(sysId, idx){
 function getSystemById(id){ return SYSTEMS.find(s=>s.id===id); }
 function getGalaxyTheme(idx){
   return [
-    {a:'10,26,84', b:'71,147,255', c:'167,112,255'},
-    {a:'39,14,84', b:'178,78,255', c:'78,221,255'},
-    {a:'10,55,40', b:'58,255,176', c:'85,120,255'},
-    {a:'76,10,24', b:'255,86,86', c:'255,160,64'},
+    {a:'10,26,84',  b:'71,147,255', c:'167,112,255'},
+    {a:'39,14,84',  b:'178,78,255', c:'78,221,255'},
+    {a:'10,55,40',  b:'58,255,176', c:'85,120,255'},
+    {a:'76,10,24',  b:'255,86,86', c:'255,160,64'},
+    {a:'16,40,92',  b:'102,181,255', c:'115,255,233'},
+    {a:'42,20,76',  b:'212,110,255', c:'119,173,255'},
+    {a:'35,45,78',  b:'255,210,90', c:'109,229,255'},
+    {a:'8,8,28',    b:'130,119,255', c:'255,120,216'},
+    {a:'18,52,76',  b:'119,255,251', c:'178,120,255'},
+    {a:'84,22,10',  b:'255,110,56', c:'255,204,89'},
+    {a:'18,18,36',  b:'255,220,125', c:'105,160,255'},
   ][idx] || {a:'10,26,84', b:'71,147,255', c:'167,112,255'};
 }
 function planetName(emoji, idx){
@@ -61,6 +68,17 @@ function miningBonusForPlanet(sys, idx){
   return (typeBase[sys.type]||8) + idx*4;
 }
 
+
+function renderGalaxyTabs(){
+  const tabs=document.getElementById('galaxy-tabs');
+  if(!tabs) return;
+  tabs.innerHTML = GALAXIES.map((g,idx)=>{
+    const locked=(g.unlock&&g.unlock>G.lvl) || (g.reqTech && !hasTech(g.reqTech));
+    const lockText = locked ? ` <span class="glock">${g.unlock&&g.unlock>G.lvl?`ур.${g.unlock}`:'tech'}</span>` : '';
+    return `<button class="gtab${idx===gxGal?' on':''}${locked?' locked':''}" onclick="setGalaxy(${idx},this)" title="${g.name}${locked?' — закрыто':''}">${g.label||g.name}${lockText}</button>`;
+  }).join('');
+}
+
 function initGalaxy(){
   canvas=document.getElementById('gx-c');
   const wrap=document.getElementById('gx-wrap');
@@ -70,6 +88,7 @@ function initGalaxy(){
   ctx=canvas.getContext('2d');
   const currentGalIdx=Math.max(0, GALAXIES.findIndex(g=>g.id===G.gal));
   if(currentGalIdx>=0) gxGal=currentGalIdx;
+  renderGalaxyTabs();
   updateGalaxyTopbar();
   genStarParticles();
   drawGalaxy();
@@ -106,9 +125,9 @@ function setGalaxy(idx,btn){
   const gal=GALAXIES[idx];
   if(gal?.unlock && gal.unlock>G.lvl){ toast(`🔒 Нужен уровень ${gal.unlock}`,'bad'); return; }
   if(gal?.reqTech && !hasTech(gal.reqTech)){ toast(`🔒 Нужна технология: ${gal.reqTech}`,'bad'); return; }
-  document.querySelectorAll('.gtab').forEach(b=>b.classList.remove('on'));
-  btn?.classList.add('on');
   gxGal=idx; gxMode='galaxy'; activeSystemId=null; selSys=null; selPlanet=null; travelTarget=null;
+  renderGalaxyTabs();
+  if(btn){ document.querySelectorAll('.gtab').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
   closePanel(false); updateGalaxyTopbar(); genStarParticles(); drawGalaxy();
 }
 
@@ -407,7 +426,7 @@ function doFlyToSystem(){
     if(travelProg>=1){
       clearInterval(iv); traveling=false; travelProg=0;
       G.sys=sys.id; G.gal=sys.gal; if(getPlanetIndex(sys.id)==null) setPlanetIndex(sys.id,0);
-      afterArrive(sys); openSystemView(sys.id);
+      afterArrive(sys); openSystemView(sys.id); saveG?.();
     }
   },60);
 }
@@ -432,7 +451,7 @@ function doFlyToPlanet(){
         G.day += Math.max(0, Math.floor(tr.days));
         while(G.day>30){ G.day-=30; G.month=(G.month||1)+1; if(G.month>12){ G.month=1; G.year=(G.year||2450)+1; } }
       }
-      updateHUD(); renderMine();
+      updateHUD(); renderMine(); saveG?.();
       const node=planetNodes(sys).find(n=>n.idx===idx);
       if(node) showPlanetPanel(sys,node);
       toast(`🛸 Орбита: ${node?.name||'планета'}`,'good');

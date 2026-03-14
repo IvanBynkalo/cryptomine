@@ -179,6 +179,8 @@ body::after{
   background:rgba(0,0,0,.3);color:var(--muted2);font-size:11px;cursor:pointer;transition:.15s
 }
 .gtab.on{background:rgba(0,180,255,.12);border-color:var(--b3);color:var(--cyan)}
+.gtab.locked{opacity:.55;filter:saturate(.6)}
+.gtab .glock{font-size:9px;color:var(--gold);margin-left:6px}
 .sys-panel{
   position:absolute;bottom:0;left:0;right:0;
   background:linear-gradient(180deg,rgba(6,16,32,0),rgba(6,16,32,.97) 25%);
@@ -485,12 +487,7 @@ body::after{
     <div class="hud-sep"></div>
     <div class="hud-c" style="min-width:80px"><div class="hud-v" style="font-size:11px" id="g-loc">Солнечная</div><div class="hud-l">Система</div></div>
   </div>
-  <div class="galaxy-tabs">
-    <button class="gtab on" onclick="setGalaxy(0,this)">🌌 Альфа</button>
-    <button class="gtab" onclick="setGalaxy(1,this)">💫 Бета</button>
-    <button class="gtab" onclick="setGalaxy(2,this)">⭐ Гамма</button>
-    <button class="gtab" onclick="setGalaxy(3,this)">🔴 Хаос</button>
-  </div>
+  <div class="galaxy-tabs" id="galaxy-tabs"></div>
   <div id="gx-wrap">
     <canvas id="gx-c"></canvas>
     <div class="gx-topbar">
