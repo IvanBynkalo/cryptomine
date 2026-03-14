@@ -174,7 +174,7 @@ function renderTrade(){
     inv.forEach(([gId,amt])=>{
       const def={name:_goodName(gId),icon:_goodIcon(gId)},price=G.prices[sys.id]?.[gId];
       const sell=price?Math.round(price*.9*(1+gSkill('trade')*.03)):null;
-      h+=`<div class="good-row"><div class="gi">${def.icon}</div>
+      h+=`<div class="good-row"><div class="gi">${gIcon}</div>
         <div class="ginfo"><div class="gname">${def.name} ×${amt}</div>
           ${sell?`<div class="gprice">Продать: ${fmt(sell)}/шт</div>`:`<div style="font-size:10px;color:var(--muted)">Нет спроса</div>`}
         </div><div class="gbtns">
@@ -201,7 +201,7 @@ function renderTrade(){
     const buyP=Math.round(price*(1-gSkill('eloquence')*.02));
     const canBuy=G.cr>=buyP&&used<G.cargoMax;
     const owned=G.cargo[gId]||0;
-    h+=`<div class="good-row"><div class="gi">${gIcon}</div>
+    h+=`<div class="good-row"><div class="gi">${def.icon}</div>
       <div class="ginfo">
         <div class="gname">${gName}</div>
         <div class="gprice">💰 ${fmt(price)}${buyP<price?` <span style="color:var(--green)">(${fmt(buyP)})</span>`:''}</div>
@@ -455,7 +455,7 @@ function renderCombatHTML(){
         <b style="color:var(--cyan)">${sys.name}</b> — пиратская активность: ${Math.round(sys.pc*100)}%
       </div>
       <button class="btn btn-r btn-full" onclick="findEnemy()">🔍 Искать противника</button>
-      ${currentAlienInvasion()?(()=>{ const inv=currentAlienInvasion(); const wave=(inv.alienIds||[]).map(id=>ALIEN_TYPES.find(a=>a.id===id)).filter(Boolean); const scouts=wave.filter(a=>(a.threat||1)<=1); const elites=wave.filter(a=>(a.threat||1)===2); const commanders=wave.filter(a=>(a.threat||1)>=3); const boss=ALIEN_TYPES.find(a=>a.id===inv.bossId); const progress=Math.round(((inv.progress||0)/Math.max(1,inv.totalTargets||1))*100); const grp=(arr,title,col)=>arr.length?`<div style="margin-top:8px"><div style="font-size:10px;font-weight:800;color:${col};margin-bottom:4px">${title} · ${arr.length}</div>${arr.map((a,i)=>`<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px;border-color:${a.color||'#ff2d78'}33;background:rgba(255,255,255,.03)"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px;filter:drop-shadow(0 0 8px ${a.color||'#ff2d78'}88)">${a.icon}</div><div><div style="font-size:12px;font-weight:700;color:${a.color||'#ff2d78'}">${a.name}</div><div style="font-size:10px;color:var(--muted2)">Угроза ${a.threat||1} · ХП ${a.maxHp} · Награда ${fmt(a.reward)}</div></div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,45,120,.15);border-color:#ff2d78;color:#ff2d78" onclick="fightAlien('${a.id}')">Бой</button>${i===0?`<button class="btn btn-sm btn-c" onclick="coopRaid('${a.id}')">Кооп</button>`:''}</div></div>`).join('')}</div>`:''; return `<div class="card" style="margin-top:8px;border-color:#ff2d7833;background:linear-gradient(180deg,rgba(255,45,120,.14),rgba(9,12,24,.65))"><div style="font-size:12px;font-weight:800;color:#ff73ac">⚠️ Вторжение в ${SYSTEMS.find(s=>s.id===inv.sysId)?.name||'неизвестной системе'}</div><div style="font-size:10px;color:var(--muted2);margin:4px 0 6px">Зачистка: ${inv.progress||0}/${inv.totalTargets||1} · ${progress}%</div><div style="height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden"><div style="width:${progress}%;height:100%;background:linear-gradient(90deg,#ff2d78,#ffd166)"></div></div>${grp(scouts,'АВАНГАРД','#7dd3fc')}${grp(elites,'ЭЛИТА','#f59e0b')}${grp(commanders,'КОМАНДИРЫ','#fb7185')}${inv.bossUnlocked&&!inv.bossDefeated&&boss?`<div class="card" style="margin-top:8px;border-color:${boss.color||'#ff2d78'}66;background:rgba(255,45,120,.15)"><div style="font-size:11px;font-weight:800;color:#ffd166;margin-bottom:4px">👑 ФИНАЛЬНЫЙ БОСС ДОСТУПЕН</div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div><div style="font-size:13px;font-weight:700;color:${boss.color||'#ff2d78'}">${boss.icon} ${boss.name}</div><div style="font-size:10px;color:var(--muted2)">Угроза ${boss.threat||5} · ХП ${boss.maxHp} · Награда ${fmt(boss.reward)}</div></div><div style="display:flex;gap:6px"><button class="btn btn-r btn-sm" onclick="fightAlien('${boss.id}')">Босс</button><button class="btn btn-g btn-sm" onclick="coopRaid('${boss.id}')">Кооп</button></div></div></div>`:`<div style="font-size:10px;color:#ffd166;margin-top:8px">👑 Босс откроется после полной зачистки волны</div>`}</div>`; })():''}
+      ${currentAlienInvasion()?(()=>{ const inv=currentAlienInvasion(); const wave=(inv.alienIds||[]).map(id=>ALIEN_TYPES.find(a=>a.id===id)).filter(Boolean); const scouts=wave.filter(a=>(a.threat||1)<=1); const elites=wave.filter(a=>(a.threat||1)===2); const commanders=wave.filter(a=>(a.threat||1)>=3); const boss=ALIEN_TYPES.find(a=>a.id===inv.bossId); const progress=Math.round(((inv.progress||0)/Math.max(1,inv.totalTargets||1))*100); const grp=(arr,title,col)=>arr.length?`<div style="margin-top:8px"><div style="font-size:10px;font-weight:800;color:${col};margin-bottom:4px">${title} · ${arr.length}</div>${arr.map((a,i)=>`<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px;border-color:${a.color||'#ff2d78'}33;background:rgba(255,255,255,.03)"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px;filter:drop-shadow(0 0 8px ${a.color||'#ff2d78'}88)">${a.icon}</div><div><div style="font-size:12px;font-weight:700;color:${a.color||'#ff2d78'}">${a.name}</div><div style="font-size:10px;color:var(--muted2)">Угроза ${a.threat||1} · ХП ${a.maxHp} · Награда ${fmt(a.reward)}</div></div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" style="background:rgba(255,45,120,.15);border-color:#ff2d78;color:#ff2d78" onclick="fightAlien('${a.id}')" ${G.sys===inv.sysId?'':'disabled'}>Бой</button>${i===0?`<button class="btn btn-sm btn-c" onclick="coopRaid('${a.id}')" ${G.sys===inv.sysId?'':'disabled'}>Кооп</button>`:''}</div></div>`).join('')}</div>`:''; return `<div class="card" style="margin-top:8px;border-color:#ff2d7833;background:linear-gradient(180deg,rgba(255,45,120,.14),rgba(9,12,24,.65))"><div style="font-size:12px;font-weight:800;color:#ff73ac">⚠️ Вторжение в ${SYSTEMS.find(s=>s.id===inv.sysId)?.name||'неизвестной системе'}</div>${G.sys!==inv.sysId?`<div style="font-size:11px;color:var(--amber);margin-top:4px">✈️ Нужно прилететь в систему вторжения для боя</div>`:''}<div style="font-size:10px;color:var(--muted2);margin:4px 0 6px">Зачистка: ${inv.progress||0}/${inv.totalTargets||1} · ${progress}%</div><div style="height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden"><div style="width:${progress}%;height:100%;background:linear-gradient(90deg,#ff2d78,#ffd166)"></div></div>${grp(scouts,'АВАНГАРД','#7dd3fc')}${grp(elites,'ЭЛИТА','#f59e0b')}${grp(commanders,'КОМАНДИРЫ','#fb7185')}${inv.bossUnlocked&&!inv.bossDefeated&&boss?`<div class="card" style="margin-top:8px;border-color:${boss.color||'#ff2d78'}66;background:rgba(255,45,120,.15)"><div style="font-size:11px;font-weight:800;color:#ffd166;margin-bottom:4px">👑 ФИНАЛЬНЫЙ БОСС ДОСТУПЕН</div><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div><div style="font-size:13px;font-weight:700;color:${boss.color||'#ff2d78'}">${boss.icon} ${boss.name}</div><div style="font-size:10px;color:var(--muted2)">Угроза ${boss.threat||5} · ХП ${boss.maxHp} · Награда ${fmt(boss.reward)}</div></div><div style="display:flex;gap:6px"><button class="btn btn-r btn-sm" onclick="fightAlien('${boss.id}')" ${G.sys===inv.sysId?'':'disabled'}>Босс</button><button class="btn btn-g btn-sm" onclick="coopRaid('${boss.id}')" ${G.sys===inv.sysId?'':'disabled'}>Кооп</button></div></div></div>`:`<div style="font-size:10px;color:#ffd166;margin-top:8px">👑 Босс откроется после полной зачистки волны</div>`}</div>`; })():''}
     </div>`;
     h+=`<div class="sh">Статистика</div>
     <div class="g2">
@@ -582,8 +582,9 @@ function renderSkillsHTML(){
 
 // ── Market HTML ──
 function renderMarketHTML(){
+  // Рынок — это каталог, но с логикой покупки без авто-экипировки
   const catMap={hull:'hull',engine:'engine',weapon:'weapon',shield:'defense'};
-  window.catalogFilter=catMap[marketCat]||marketCat||window.catalogFilter||'hull';
+  catalogFilter=catMap[marketCat]||marketCat||catalogFilter||'hull';
   return renderCatalogHTML();
 }
 
@@ -629,37 +630,49 @@ function renderRangersHTML(){
 // ── Debris HTML ──
 function renderDebrisHTML(){
   const sys=SYSTEMS.find(s=>s.id===G.sys);
-  const now=Date.now();
+  if(!G.debrisActive) G.debrisActive=[];
   let h=`<div class="card" style="margin-bottom:10px;font-size:11px;color:var(--muted2)">
-    Обломки в <b style="color:var(--cyan)">${sys.name}</b>. Обновляются каждые 24 игровых часа.
+    Обломки появляются раз в игровую неделю во всех системах. Соберите их, прилетев в нужную систему.
   </div>`;
-  const local=G.debrisActive.filter(d=>!d.collected);
-  if(!local.length){
+  if(!G.debrisActive.length){
     h+=`<div class="card" style="text-align:center;padding:20px;color:var(--muted2)">
       <div style="font-size:40px;margin-bottom:8px">🌌</div>
-      Нет обломков.
-      <br><button class="btn btn-sm btn-c" style="margin-top:10px" onclick="spawnDebris();renderMoreTab()">🔍 Сканировать</button>
+      Нет обломков в секторе. Они появятся в начале следующей игровой недели.
     </div>`;
     return h;
   }
-  local.forEach(db=>{
-    // spawnDebris stores: db.type, db.name, db.icon, db.reward(number), db.rp, db.expires(timestamp)
-    const ready=now>=db.expires;
-    const totalDur=30000; // fallback display duration
-    const elapsed=now-(db.expires-totalDur);
-    const progress=Math.min(1,Math.max(0,elapsed/totalDur));
-    h+=`<div class="debris-card${ready?' glow-g':''}" onclick="collectDebris('${db.id}')">
-      <div class="db-icon">${db.icon||'💫'}</div>
-      <div class="db-info">
-        <div class="db-name">${db.name||db.type}</div>
-        <div class="db-desc">${sys.name}</div>
-        <div class="db-reward">💰 +${fmt(db.reward)} кр · +${db.rp} НО</div>
-        ${ready
-          ?`<div style="font-size:11px;color:var(--green);margin-top:3px">✅ Готово! Нажмите для сбора</div>`
-          :`<div class="db-time">Истекает через: ${Math.max(0,Math.ceil((db.expires-now)/1000))}с</div>`}
-        <div class="db-bar"><div class="db-bar-f" style="width:${Math.min(100,progress*100)}%"></div></div>
-      </div></div>`;
-  });
+  const here=G.debrisActive.filter(d=>d.sysId===G.sys);
+  const elsewhere=G.debrisActive.filter(d=>d.sysId!==G.sys);
+  if(here.length){
+    h+=`<div class="sh">📍 В текущей системе (${sys.name})</div>`;
+    here.forEach(db=>{
+      h+=`<div class="debris-card glow-g" onclick="collectDebris('${db.id}')">
+        <div class="db-icon">${db.icon||'💫'}</div>
+        <div class="db-info">
+          <div class="db-name">${db.name}</div>
+          <div class="db-reward">💰 +${fmt(db.reward)} кр · +${db.rp} НО</div>
+          <div style="font-size:11px;color:var(--green);margin-top:3px">✅ Нажмите для сбора</div>
+        </div></div>`;
+    });
+  } else {
+    h+=`<div class="card" style="color:var(--muted2);font-size:12px;padding:10px">В системе <b style="color:var(--cyan)">${sys.name}</b> обломков нет.</div>`;
+  }
+  if(elsewhere.length){
+    h+=`<div class="sh">🌌 В других системах (${elsewhere.length})</div>`;
+    const bySys={};
+    elsewhere.forEach(db=>{ (bySys[db.sysId]||(bySys[db.sysId]=[])).push(db); });
+    Object.entries(bySys).forEach(([sysId,dbs])=>{
+      const s=SYSTEMS.find(x=>x.id===sysId);
+      h+=`<div class="card" style="margin-bottom:6px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px">${s?.emoji||'🌑'} ${s?.name||sysId}</div>
+        ${dbs.map(db=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:18px">${db.icon}</span>
+          <div style="flex:1;font-size:11px;color:var(--muted2)">${db.name} · +${fmt(db.reward)} кр · +${db.rp} НО</div>
+          <span style="font-size:9px;color:var(--muted2)">→ Лети туда</span>
+        </div>`).join('')}
+      </div>`;
+    });
+  }
   return h;
 }
 
@@ -1112,7 +1125,7 @@ function renderHangarHTML(){
     const installed=getEquipCatalog().find(e=>e.id===installedId);
     const rarColor=installed?eqRarityColor(installed.rarity||'common'):'#333';
     h+=`<div class="card" style="display:flex;align-items:center;gap:10px;border-color:${rarColor}44;margin-bottom:6px"
-        onclick="setMoreTab('catalog',null);catalogFilter='${sl.cat}';renderMoreTab()">
+        onclick="window.catalogFilter='${sl.cat}';setMoreTab('catalog',null)">
       <div style="font-size:24px">${installed?.icon||sl.icon}</div>
       <div style="flex:1">
         <div style="font-size:10px;color:var(--muted2)">${sl.label}</div>

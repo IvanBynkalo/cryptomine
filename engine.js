@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════
 //  engine.js — game loop, time, quests, mining, bots
 // ═══════════════════════════════════════
-
+// ── Goods helpers — work for both GOODS (legacy) and MARKET_CATALOG ──
 function _goodBase(gId){
   if(globalThis.GOODS && GOODS[gId]) return GOODS[gId].base || 0;
   const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
@@ -17,13 +17,43 @@ function _goodIcon(gId){
   const it=globalThis.MARKET_BY_ID?.[gId] || (globalThis.MARKET_CATALOG||[]).find(x=>x.id===gId);
   return it?.icon || '📦';
 }
+
+// ── Per-system market goods (seeded deterministic per system + MARKET_CATALOG) ──
+const _CAT_MAP_SYS={
+  home:    ['basic','industrial','contract'],
+  trade:   ['basic','industrial','luxury','contract'],
+  paradise:['basic','luxury','science','contract'],
+  mining:  ['basic','industrial','regional'],
+  science: ['science','industrial','regional','unique'],
+  danger:  ['military','regional','unique','contract']
+};
+const _CAT_TAKE_SYS={basic:8,industrial:6,military:5,science:5,regional:5,unique:3,luxury:4,contract:4};
+function _sysHash(str){ let h=0; for(let i=0;i<str.length;i++) h=((h<<5)-h)+str.charCodeAt(i); return Math.abs(h); }
+function getSystemMarketGoods(sys){
+  if(!sys) return [];
+  if(Array.isArray(sys._marketGoods)&&sys._marketGoods.length) return sys._marketGoods;
+  const out=[];
+  const add=id=>{ if(id&&!out.includes(id)) out.push(id); };
+  (sys.goods||[]).forEach(add);
+  const cats=_CAT_MAP_SYS[sys.type]||['basic','industrial','regional'];
+  const allCat=globalThis.MARKET_CATALOG||[];
+  const seed=_sysHash(sys.id);
+  cats.forEach((cat,idx)=>{
+    const arr=allCat.filter(x=>x.category===cat);
+    if(!arr.length) return;
+    const count=Math.min(_CAT_TAKE_SYS[cat]||4,arr.length);
+    const start=(seed+idx*7)%arr.length;
+    for(let i=0;i<count;i++) add(arr[(start+i)%arr.length].id);
+  });
+  sys._marketGoods=out;
+  return out;
+}
 function _sysGoods(sys){
   if(!sys) return [];
-  if(typeof getSystemMarketGoods==='function'){
-    try{ const r=getSystemMarketGoods(sys); if(r&&r.length) return r; }catch(e){}
-  }
+  try{ const r=getSystemMarketGoods(sys); if(r&&r.length) return r; }catch(e){}
   return sys.goods||[];
 }
+
 
 function initPrices(){
   SYSTEMS.forEach(sys=>{
@@ -86,6 +116,7 @@ function advanceTime(){
     G.hour=0;G.day++;
     fluctuatePrices(G.day%7===0);
     if(G.day%7===0) toast('📅 Новая неделя! Цены изменились','warn');
+    if(G.day%7===0){ spawnDebris(); } // weekly debris spawn across all systems
     if(G.day>30){ G.day=1; G.month++; }
     if(G.month>12){ G.month=1; G.year++; }
     G.era=ERAS[Math.floor(((G.year-2450)*12+(G.month-1))/6)%ERAS.length];
@@ -124,7 +155,6 @@ function refreshQuests(){
       type,sysId:m.sysId,giver:m.name,giverIcon:m.icon,
       reward,xp,rp,expires:absDay+5,progress:0,accepted:false,done:false};
     if(type==='deliver'){
-      // Use all available goods (legacy GOODS + catalog)
       const allGoodIds=[...Object.keys(GOODS||{}), ...(globalThis.MARKET_CATALOG||[]).filter(x=>x.questUse!==false).map(x=>x.id)];
       const good=allGoodIds[Math.floor(Math.random()*allGoodIds.length)];
       const dest=SYSTEMS.filter(s=>s.id!==m.sysId)[Math.floor(Math.random()*18)];
@@ -212,18 +242,59 @@ function updateQuestBadge(){
 }
 
 // ── Debris ──
-function spawnDebris(){
-  if(G.debrisActive.length>=3) return;
-  if(Math.random()>0.3) return;
+// Debris is per-system, spawns once per game week, persists until collected or cleared by event
+// Structure: {id, sysId, type, name, icon, reward(cr), rp, spawnDay(absDay)}
+function _absDay(){ return G.day+(G.month-1)*30+(G.year-2450)*360; }
+
+function spawnDebrisForSystem(sysId){
+  if(!G.debrisActive) G.debrisActive=[];
+  // Max 2 debris per system
+  const sysDebris=G.debrisActive.filter(d=>d.sysId===sysId);
+  if(sysDebris.length>=2) return;
+  if(Math.random()>0.4) return;
   const d=DEBRIS_TYPES[Math.floor(Math.random()*DEBRIS_TYPES.length)];
-  G.debrisActive.push({id:`db_${Date.now()}`,type:d.id,name:d.name,icon:d.icon,
-    reward:d.reward,rp:d.rp,expires:Date.now()+d.time*1000});
+  G.debrisActive.push({
+    id:`db_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+    sysId, type:d.id, name:d.name, icon:d.icon,
+    reward:d.reward, rp:d.rp,
+    spawnDay:_absDay()
+  });
 }
+
+function spawnDebris(){
+  // Called from weekly tick in advanceTime — spawns for ALL systems, not just current
+  SYSTEMS.forEach(sys=>{
+    spawnDebrisForSystem(sys.id);
+  });
+}
+
+function forceSpawnDebris(){
+  // Instant spawn in current system (for events)
+  const d=DEBRIS_TYPES[Math.floor(Math.random()*DEBRIS_TYPES.length)];
+  if(!G.debrisActive) G.debrisActive=[];
+  G.debrisActive.push({
+    id:`db_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+    sysId:G.sys, type:d.id, name:d.name, icon:d.icon,
+    reward:d.reward, rp:d.rp,
+    spawnDay:_absDay()
+  });
+}
+
+function clearDebrisForEvent(reason){
+  // Called on war/invasion events — clears some debris
+  if(!G.debrisActive) return;
+  const before=G.debrisActive.length;
+  G.debrisActive=G.debrisActive.filter(()=>Math.random()>0.5);
+  if(before>G.debrisActive.length)
+    toast(`💥 ${reason} уничтожил часть обломков в секторе`,'warn');
+}
+
 function collectDebris(dbId){
+  if(!G.debrisActive) return;
   const i=G.debrisActive.findIndex(d=>d.id===dbId);
   if(i<0) return;
   const d=G.debrisActive[i];
-  if(Date.now()>d.expires){G.debrisActive.splice(i,1);renderMoreTab();return;}
+  if(d.sysId!==G.sys){toast('✈️ Нужно лететь в эту систему','bad');return;}
   G.debrisActive.splice(i,1);
   G.cr+=d.reward;G.totalCr+=d.reward;G.rp+=d.rp;
   // collect quests progress
@@ -232,7 +303,7 @@ function collectDebris(dbId){
       q.progress=(q.progress||0)+1;
     }
   });
-  toast(`${d.icon} +${fmt(d.reward)} кр`,'good');haptic('medium');renderMoreTab();
+  toast(`${d.icon} +${fmt(d.reward)} кр · +${d.rp} НО`,'good');haptic('medium');renderMoreTab();
 }
 
 // ── Bot rangers ──
@@ -329,6 +400,7 @@ function checkAlienInvasion(){
       const wave=buildAlienWave(sys,raceId);
       G.alienInvasion={sysId:sys.id,race:race.id,raceIcon:race.icon,raceName:race.name,spawnDay:G.day,alienIds:wave.alienIds,bossId:wave.bossId,bossUnlocked:false,bossDefeated:false,progress:0,totalTargets:wave.alienIds.length+1,alienId:wave.alienIds[0]};
       alienInvasion=G.alienInvasion;
+      clearDebrisForEvent('Вторжение пришельцев');
       toast(`👾 Вторжение! ${race.icon}${race.name} в ${sys.name}!`,'bad');
     }
   });
@@ -399,7 +471,7 @@ function refuel(){
   }
   const needed=Math.max(0,G.maxFuel-G.fuel);
   if(needed<=0){toast('⛽ Бак полон!','warn');return;}
-  const fuelPrice=Math.round((G.prices[G.sys]?.['fuel']||G.prices[G.sys]?.['technical_fuel']||G.prices[G.sys]?.['fuel_cells']||80)*0.6); // 60% of market price
+  const fuelPrice=Math.round((G.prices[G.sys]?.fuel||80)*0.6); // 60% of market price
   const totalCost=Math.round(fuelPrice*needed/10); // per 10 units
   if(G.cr<totalCost){toast(`💸 Нужно ${fmt(totalCost)} кр на заправку`,'bad');return;}
   G.cr-=totalCost;G.fuel=G.maxFuel;
@@ -409,20 +481,25 @@ function refuel(){
 
 // ── Game loop ──
 let lastTick=Date.now();
-// Migrate missing fields introduced in new features
+// Migrate missing fields for older saves
 if(!G.eventHistory)    G.eventHistory=[];
 if(!G.anomalyLog)      G.anomalyLog=[];
 if(!G.storyProgress)   G.storyProgress={};
 if(!G.anomaliesActive) G.anomaliesActive=[];
 if(!G.anomaliesFound)  G.anomaliesFound=0;
+if(!G.history)         G.history=[];
+if(!G.debrisActive)    G.debrisActive=[];
 function tick(){
   const now=Date.now();
   const dt=(now-lastTick)/1000;lastTick=now;
+  // Guard: if G.cr became NaN (e.g. from bad save), reset to 0
+  if(!isFinite(G.cr)||isNaN(G.cr)) G.cr=0;
+  if(!isFinite(G.totalCr)||isNaN(G.totalCr)) G.totalCr=G.cr;
   const cps=calcCPS();
-  if(cps>0){ 
+  if(cps>0&&isFinite(cps)){ 
     G.cr+=cps*dt;G.totalCr+=cps*dt;
-    G.xp+=cps*dt*.08;  // xp from automation — levels feel earned
-    G.rp+=calcRpMult()*dt*.005; // НО умеренно от CPS
+    G.xp+=cps*dt*.08;
+    G.rp+=calcRpMult()*dt*.005;
   }
   G.maxEnergy=Math.floor(150+G.lvl*3);
   const eRegen=0.5+(gSkill('engineering')*0.05); // faster regen = more fun tapping
@@ -438,7 +515,7 @@ function tick(){
 setInterval(tick,250);
 setInterval(()=>{
   if(!_uiReady) return;
-  spawnDebris();tickBotRangers();
+  tickBotRangers();
   if(curScreen==='trade') renderTrade();
   if(curScreen==='more')  renderMoreTab();
   if(curScreen==='quest') {checkQuestProgress();renderQuests();}
@@ -473,6 +550,7 @@ function tickRandomEvents(){
       for(let i=0;i<3;i++) forceSpawnDebris();
     } else if(ev.effect==='price_crash'){
       fluctuatePrices(true);
+      clearDebrisForEvent('Экономический кризис');
     }
     toast(`${ev.icon} Событие: ${ev.name} — ${ev.desc}`,'warn');
     hapticN('warning');
