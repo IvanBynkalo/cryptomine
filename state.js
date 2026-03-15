@@ -10,12 +10,6 @@ function freshState(){
     // calendar
     day:1,hour:6,minute:0,month:1,year:2450,era:'Заря',
     sys:'sol',gal:'alpha',
-    currentPlanetBySystem:{sol:0},
-    career:'trader',careerXP:0,
-    careerCooldowns:{},tempBuffs:{},
-    honor:0,influence:0,
-    licenses:{},
-    tradeStats:{profit:0, loss:0, soldUnits:0, completedContracts:0, marketDeals:0},
     upgrades:{},researched:{},skills:{},
     equip:{hull:'hull_scout',engine:'eng_basic',weapon:'wpn_laser',shield:'shld_basic'},
     owned_equip:[],
@@ -26,16 +20,9 @@ function freshState(){
     combat:null,combatLog:[],
     killCount:0,totalKillReward:0,alienKills:0,alienKillsByRace:{},
     prices:{},priceHistory:{},
-    planetMarket:{},planetPrices:{},planetPriceHistory:{},
     debrisActive:[],botActions:[],
     policeRep:{},capturedSystems:[],
     landPlots:{}, // sysId -> {good, level, lastHarvestDay}
-    base:{level:0, modules:{}, storage:0},
-    debt:0,debtRate:0.08,debtDueDay:0,bankruptcies:0,
-    storyProgress:{},storyStats:{invasionWins:0},
-    historyLog:[],
-    guideSeen:false,
-    diagnosticsSeen:false,
     playerName:null,
     leagueSeason:1,leagueScore:0,leagueBestSeason:0,
     seasonStart:Date.now(),
@@ -72,28 +59,6 @@ if(!G.month)      G.month=1;
 if(!G.year)       G.year=2450;
 if(!G.cargoCost)  G.cargoCost={};
 if(!G.landPlots)  G.landPlots={};
-if(!G.currentPlanetBySystem) G.currentPlanetBySystem={[G.sys||'sol']:0};
-if(!G.planetMarket) G.planetMarket={};
-if(!G.planetPrices) G.planetPrices={};
-if(!G.planetPriceHistory) G.planetPriceHistory={};
-if(!G.career) G.career='trader';
-if(typeof G.careerXP!=='number') G.careerXP=0;
-if(typeof G.honor!=='number') G.honor=0;
-if(typeof G.influence!=='number') G.influence=0;
-if(!G.licenses) G.licenses={};
-if(!G.tradeStats) G.tradeStats={profit:0, loss:0, soldUnits:0, completedContracts:0, marketDeals:0};
-if(!G.careerCooldowns) G.careerCooldowns={};
-if(!G.tempBuffs) G.tempBuffs={};
-if(!G.base) G.base={level:0, modules:{}, storage:0};
-if(typeof G.debt!=='number') G.debt=0;
-if(typeof G.debtRate!=='number') G.debtRate=0.08;
-if(typeof G.debtDueDay!=='number') G.debtDueDay=0;
-if(typeof G.bankruptcies!=='number') G.bankruptcies=0;
-if(!G.storyProgress) G.storyProgress={};
-if(!G.storyStats) G.storyStats={invasionWins:0};
-if(!Array.isArray(G.historyLog)) G.historyLog=[];
-if(typeof G.guideSeen!=='boolean') G.guideSeen=false;
-if(typeof G.diagnosticsSeen!=='boolean') G.diagnosticsSeen=false;
 
 // offline earnings
 (()=>{
@@ -134,7 +99,6 @@ function calcCPS(){
   if(G.landPlots) Object.values(G.landPlots).forEach(p=>{
     if(p&&p.level) cps+=p.level*5;
   });
-  cps += (BASE_UPGRADES?.hub?.cpsPerLevel||0) * (G.base?.modules?.hub||0);
   return cps;
 }
 function calcAttack(){
@@ -142,13 +106,11 @@ function calcAttack(){
   if(hasTech('plasma'))    a+=8;
   if(hasTech('ionbeam'))   a+=15;
   if(hasTech('antimatter'))a+=20;
-  if(typeof getTempBuffMult==='function') a*=getTempBuffMult('combatAtk');
   return Math.round(a*(1+gSkill('attack')*0.05));
 }
 function calcDefense(){
   let d=(getEquipStats().def||0)+gSkill('defense')*4;
   if(hasTech('nullfield')) d+=15;
-  if(typeof getTempBuffMult==='function') d*=getTempBuffMult('combatDef');
   return d;
 }
 function calcMissileDmg(){
@@ -170,17 +132,13 @@ function calcFuelCost(sys){
   return Math.max(2,Math.round(c));
 }
 function calcCargoMax(){
-  const careerBonus=(typeof getCareerProfile==='function' ? (getCareerProfile().cargoBonus||0) : 0);
-  const depotBonus=(BASE_UPGRADES?.depot?.cargoPerLevel||0) * (G.base?.modules?.depot||0);
-  return 20+gUpg('cargo')*10+(getEquipStats().cargo||0)+careerBonus+depotBonus;
+  return 20+gUpg('cargo')*10+(getEquipStats().cargo||0);
 }
 function calcCargoUsed(){
   return Object.values(G.cargo).reduce((a,b)=>a+b,0);
 }
 function calcRpMult(){
-  let mul=1+(gUpg('scanner')*0.5)+(gSkill('intellect')*0.08);
-  if(typeof getTempBuffMult==='function') mul*=getTempBuffMult('rp');
-  return mul;
+  return 1+(gUpg('scanner')*0.5)+(gSkill('intellect')*0.08);
 }
 function getRank(){
   let rank=RANKS[0];

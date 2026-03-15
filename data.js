@@ -46,30 +46,6 @@ const SYSTEMS=[
   {id:'sanctum',gal:'chaos',name:'Санктум', x:.4, y:.75,type:'trade',  emoji:'🏯',fuelCost:80,pc:.4, goods:['tech','medicine','food'],    planets:['🏯','💜','🔵']},
 ];
 
-
-
-const PLANET_TYPE_PROFILES={
-  urban:{name:'Городская', tax:4, risk:1, mods:{ore:1.05, minerals:1.06, food:0.96, tech:1.02, fuel:1.04, medicine:0.98, weapons:1.08}},
-  agro:{name:'Аграрная', tax:2, risk:1, mods:{ore:1.12, minerals:1.14, food:0.74, tech:1.1, fuel:1.05, medicine:0.92, weapons:1.1}},
-  mining:{name:'Шахтёрская', tax:3, risk:2, mods:{ore:0.72, minerals:0.78, food:1.12, tech:1.14, fuel:0.9, medicine:1.2, weapons:1.08}},
-  industrial:{name:'Промышленная', tax:5, risk:2, mods:{ore:0.9, minerals:0.94, food:1.08, tech:1.04, fuel:0.96, medicine:1.08, weapons:1.02}},
-  trade:{name:'Торговая', tax:6, risk:1, mods:{ore:1.04, minerals:1.05, food:0.9, tech:0.92, fuel:1.0, medicine:0.94, weapons:1.06}},
-  science:{name:'Научная', tax:5, risk:2, mods:{ore:1.18, minerals:1.05, food:1.08, tech:0.82, fuel:0.96, medicine:0.88, weapons:1.14}},
-  military:{name:'Военная', tax:7, risk:3, mods:{ore:1.06, minerals:1.02, food:1.14, tech:1.06, fuel:0.92, medicine:1.08, weapons:0.82}},
-  frontier:{name:'Пограничная', tax:3, risk:4, mods:{ore:0.94, minerals:0.96, food:1.14, tech:1.08, fuel:1.14, medicine:1.18, weapons:1.22}},
-  paradise:{name:'Курортная', tax:6, risk:1, mods:{ore:1.12, minerals:1.08, food:0.84, tech:1.08, fuel:1.06, medicine:0.9, weapons:1.2}},
-  anomaly:{name:'Аномальная', tax:1, risk:5, mods:{ore:0.96, minerals:0.9, food:1.25, tech:0.88, fuel:1.18, medicine:1.22, weapons:1.1}},
-};
-
-const SYSTEM_PLANET_ROTATION={
-  home:['urban','agro','industrial','frontier'],
-  mining:['mining','industrial','frontier','anomaly'],
-  trade:['trade','urban','agro','industrial'],
-  science:['science','trade','anomaly','urban'],
-  danger:['military','frontier','mining','anomaly'],
-  paradise:['paradise','agro','trade','science'],
-};
-
 const GOODS={
   ore:     {name:'Руда',           icon:'⛏️',base:40},
   minerals:{name:'Минералы',       icon:'💎',base:120},
@@ -233,40 +209,3 @@ const LEAGUE_TIERS=[
   {name:'Алмаз',   min:1000,icon:'💎',color:'#a855f7'},
   {name:'Мастер',  min:2500,icon:'👑',color:'#ff2d78'},
 ];
-
-// ── Economy / career progression ───────────────────────────────────────────
-const CAREER_PATHS={
-  trader:{ id:'trader', name:'Торговец', icon:'💱', desc:'Скидки на закупку, лучшая цена продажи и увеличенный трюм.', buyMul:0.95, sellMul:1.08, cargoBonus:10, questMul:1.05,
-    ability:{ id:'market_surge', name:'Рыночный нюх', icon:'📈', cooldownDays:3, desc:'На 2 игровых дня улучшает цены покупки и продажи.' } },
-  hunter:{ id:'hunter', name:'Охотник', icon:'⚔️', desc:'Бонус к военным контрактам и выгодные боевые грузы.', militaryBuyMul:0.94, sellMul:1.02, questMul:1.07,
-    ability:{ id:'battle_focus', name:'Боевая концентрация', icon:'🎯', cooldownDays:3, desc:'Даёт ракеты и временный бонус к атаке/защите.' } },
-  scientist:{ id:'scientist', name:'Исследователь', icon:'🔬', desc:'Лучшие сделки по научным товарам и больше НО за контракты.', scienceBuyMul:0.93, rpMul:1.15, questMul:1.04,
-    ability:{ id:'deep_scan', name:'Глубокое сканирование', icon:'🧪', cooldownDays:3, desc:'Мгновенно приносит науку и повышает шанс находок.' } },
-  commander:{ id:'commander', name:'Командор', icon:'👑', desc:'Больше влияния, доступ к элитным лицензиям и премии за контракты.', influenceMul:1.25, sellMul:1.03, questMul:1.08,
-    ability:{ id:'command_protocol', name:'Командный протокол', icon:'🛰️', cooldownDays:4, desc:'Повышает влияние и ускоряет реакции полиции/союзников.' } },
-};
-
-const BASE_UPGRADES={
-  hub:{ id:'hub', name:'Командный модуль', icon:'🏠', cost:30000, maxLevel:5, desc:'Повышает эффективность базы и пассивный доход.', cpsPerLevel:8 },
-  depot:{ id:'depot', name:'Склад', icon:'📦', cost:22000, maxLevel:5, desc:'Увеличивает лимит трюма и хранения.', cargoPerLevel:8 },
-  lab:{ id:'lab', name:'Лаборатория', icon:'🧪', cost:28000, maxLevel:5, desc:'Пассивно приносит научные очки.', rpPerLevel:3 },
-  defense:{ id:'defense', name:'Защита периметра', icon:'🛡️', cost:26000, maxLevel:5, desc:'Снижает риск вторжений и штрафы при банкротстве.', defensePerLevel:1 },
-};
-
-const STORY_MISSIONS=[
-  { id:'story_first_trade', title:'Первые сделки', icon:'📦', desc:'Продайте 10 единиц любого товара.', check:'sell_units', target:10, reward:{cr:2500, rp:20, influence:3} },
-  { id:'story_first_license', title:'Официальный путь', icon:'📜', desc:'Купите любую лицензию на рынке.', check:'license_count', target:1, reward:{cr:4000, honor:3, influence:5} },
-  { id:'story_invasion_response', title:'Ответ вторжению', icon:'👾', desc:'Отбейте хотя бы одну волну вторжения.', check:'invasion_wins', target:1, reward:{cr:7000, rp:30, honor:6} },
-  { id:'story_base_builder', title:'Своя база', icon:'🏗️', desc:'Постройте базу 3 уровня.', check:'base_level', target:3, reward:{cr:10000, influence:8, item:'industrial_drones'} },
-];
-
-const MARKET_LICENSES={
-  military_basic:{ id:'military_basic', name:'Военная лицензия I', icon:'🪖', cost:6000, minLvl:5, minHonor:4, minInfluence:0, categories:['military'], desc:'Доступ к базовым военным грузам.' },
-  military_advanced:{ id:'military_advanced', name:'Военная лицензия II', icon:'🚀', cost:24000, minLvl:10, minHonor:12, minInfluence:8, requires:['military_basic'], categories:['military'], desc:'Доступ к продвинутым военным грузам.' },
-  science_elite:{ id:'science_elite', name:'Научная лицензия', icon:'🧪', cost:18000, minLvl:8, minHonor:6, minInfluence:6, categories:['science'], desc:'Доступ к элитным научным грузам.' },
-  xeno_trade:{ id:'xeno_trade', name:'Ксено-лицензия', icon:'👽', cost:42000, minLvl:14, minHonor:18, minInfluence:16, categories:['unique'], desc:'Торговля ксено-материалами и редкими находками.' },
-  anomaly_trade:{ id:'anomaly_trade', name:'Лицензия аномалий', icon:'🌀', cost:52000, minLvl:16, minHonor:20, minInfluence:18, categories:['unique'], desc:'Торговля нестабильными аномальными грузами.' },
-  anomaly_elite:{ id:'anomaly_elite', name:'Элитная лицензия аномалий', icon:'🌌', cost:90000, minLvl:22, minHonor:28, minInfluence:28, requires:['anomaly_trade'], categories:['unique'], desc:'Доступ к элитным аномальным ядрам и сердечникам.' },
-  artifact_hunter:{ id:'artifact_hunter', name:'Лицензия артефактов', icon:'🏺', cost:65000, minLvl:18, minHonor:22, minInfluence:20, categories:['unique'], desc:'Доступ к древним артефактам и матрицам.' },
-  bio_trade:{ id:'bio_trade', name:'Био-лицензия', icon:'🧬', cost:15000, minLvl:7, minHonor:5, minInfluence:4, categories:['luxury'], desc:'Торговля редкой биофлорой и питомцами.' },
-};

@@ -233,10 +233,8 @@ function doFly(){
   if(!selSys||traveling) return;
   const sys=SYSTEMS.find(s=>s.id===selSys);
   const fc=calcFuelCost(sys);
-  const fromSys=SYSTEMS.find(s=>s.id===G.sys);
   if(hasTech('quantum')){
     G.sys=selSys; G.gal=sys.gal;
-    if(typeof pushHistory==='function') pushHistory('travel','Квантовый перелёт',`${fromSys?.name||'Неизвестно'} → ${sys.name}`);
     afterArrive(sys); closePanel(); return;
   }
   G.fuel=Math.max(0,G.fuel-fc);
@@ -251,7 +249,6 @@ function doFly(){
     if(travelProg>=1){
       clearInterval(iv); traveling=false;
       G.sys=selSys; G.gal=sys.gal;
-      if(typeof pushHistory==='function') pushHistory('travel','Перелёт завершён',`${fromSys?.name||'Неизвестно'} → ${sys.name}`);
       afterArrive(sys); closePanel();
     }
   },60);
